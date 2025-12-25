@@ -2,28 +2,25 @@ from flask import session
 
 MENU_STRUCTURE = {
     'kitchen': [
-        {'label': 'Orders', 'endpoint': 'admin.orders', 'icon': 'fa-list'},
-        {'label': 'Tables', 'endpoint': 'admin.tables', 'icon': 'fa-chair'},
-        {'label': 'Paid / Completed', 'endpoint': 'admin.completed', 'icon': 'fa-check-circle'},
+        {'label': 'Orders', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-speedometer2'},
+        {'label': 'Tables', 'endpoint': 'admin.tables', 'icon': 'bi-grid-3x3'},
+        {'label': 'Paid / Completed', 'endpoint': 'admin.completed', 'icon': 'bi-check-circle'},
     ],
     'office': [
-        {'label': 'Dashboard', 'endpoint': 'admin.dashboard', 'icon': 'fa-tachometer-alt'},
-        {'label': 'Orders History', 'endpoint': 'admin.history', 'icon': 'fa-history'},
-        {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'fa-credit-card'},
-        {'label': 'Reports', 'endpoint': 'admin.reports', 'icon': 'fa-chart-bar'},
-        {'label': 'Staff', 'endpoint': 'admin.staff', 'icon': 'fa-users'},
+        {'label': 'Analytics', 'endpoint': 'analytics.analytics_dashboard', 'icon': 'bi-graph-up'},
+        {'label': 'Staff', 'endpoint': 'admin.manage_users', 'icon': 'bi-people'},
+        {'label': 'Orders History', 'endpoint': 'admin.history', 'icon': 'bi-clock-history'},
+        {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
     ],
     'storefront': [
-        {'label': 'Active Tables', 'endpoint': 'admin.active_tables', 'icon': 'fa-utensils'},
-        {'label': 'Walk-in Orders', 'endpoint': 'admin.walkin', 'icon': 'fa-walking'},
-        {'label': 'Mark Paid', 'endpoint': 'admin.mark_paid', 'icon': 'fa-money-bill-wave'},
-        {'label': 'Print Receipt', 'endpoint': 'admin.print_receipt', 'icon': 'fa-print'},
+        {'label': 'Active Tables', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-layout-text-window-reverse'},
+        {'label': 'Walk-in Orders', 'endpoint': 'admin.walkin', 'icon': 'bi-person-walking'},
+        {'label': 'Print Receipt', 'endpoint': 'admin.print_receipt', 'icon': 'bi-printer'},
     ],
     'menu': [
-        {'label': 'Categories', 'endpoint': 'admin.categories', 'icon': 'fa-tags'},
-        {'label': 'Items', 'endpoint': 'admin.items', 'icon': 'fa-hamburger'},
-        {'label': 'Availability', 'endpoint': 'admin.availability', 'icon': 'fa-toggle-on'},
-        # {'label': 'Modifiers', 'endpoint': 'admin.modifiers', 'icon': 'fa-plus'}, # Coming later
+        {'label': 'Menu Items', 'endpoint': 'admin.manage_menu', 'icon': 'bi-journal-text'},
+        {'label': 'Categories', 'endpoint': 'admin.categories', 'icon': 'bi-tags'},
+        {'label': 'Availability', 'endpoint': 'admin.availability', 'icon': 'bi-toggle-on'},
     ]
 }
 

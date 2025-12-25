@@ -155,3 +155,43 @@ def update_order_status(order_id):
     
     socketio.emit('status_change', {'order_id': order.id, 'new_status': new_status}, room=f"order_{order.id}")
     return {"message": "Updated"}, 200
+
+@admin_bp.route('/admin/tables')
+@login_required
+def tables():
+    return render_template('base.html', content="Tables View - Coming Soon")
+
+@admin_bp.route('/admin/completed')
+@login_required
+def completed():
+    return render_template('base.html', content="Completed Orders - Coming Soon")
+
+@admin_bp.route('/admin/history')
+@login_required
+def history():
+    return render_template('base.html', content="Order History - Coming Soon")
+
+@admin_bp.route('/admin/payments')
+@login_required
+def payments():
+    return render_template('base.html', content="Payments - Coming Soon")
+
+@admin_bp.route('/admin/walkin')
+@login_required
+def walkin():
+    return render_template('base.html', content="Walk-in Orders - Coming Soon")
+
+@admin_bp.route('/admin/print-receipt')
+@login_required
+def print_receipt():
+    return render_template('base.html', content="Print Receipt - Coming Soon")
+
+@admin_bp.route('/admin/categories')
+@login_required
+def categories():
+    return render_template('base.html', content="Manage Categories - Coming Soon")
+
+@admin_bp.route('/admin/availability')
+@login_required
+def availability():
+    return render_template('base.html', content="Manage Availability - Coming Soon")

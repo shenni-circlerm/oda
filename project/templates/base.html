@@ -19,28 +19,27 @@
             <div class="sidebar-header">
                 <h3>Oda Admin</h3>
             </div>
+            
+            <!-- View Switcher -->
+            <div class="px-3 mb-3">
+                <label class="text-muted small mb-1">Current View</label>
+                <select class="form-select form-select-sm" onchange="switchView(this.value)">
+                    {% for view in available_views %}
+                    <option value="{{ view }}" {% if current_view == view %}selected{% endif %}>
+                        {{ view|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <ul class="list-unstyled components">
+                {% for item in sidebar_menu %}
                 <li>
-                    <a href="{{ url_for('admin.staff_dashboard') }}" class="{% if 'dashboard' in request.path %}active{% endif %}">
-                        <i class="bi bi-speedometer2 me-2"></i> Kitchen
+                    <a href="{{ url_for(item.endpoint) }}" class="{% if request.endpoint == item.endpoint %}active{% endif %}">
+                        <i class="bi {{ item.icon }} me-2"></i> {{ item.label }}
                     </a>
                 </li>
-                <li>
-                    <a href="{{ url_for('admin.manage_menu') }}" class="{% if 'menu' in request.path %}active{% endif %}">
-                        <i class="bi bi-journal-text me-2"></i> Menu
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('admin.manage_users') }}" class="{% if 'users' in request.path %}active{% endif %}">
-                        <i class="bi bi-people me-2"></i> Staff
-                    </a>
-                </li>
-                <!--TODO: Future implementation--->
-                <!-- <li>
-                    <a href="{{ url_for('analytics.analytics_dashboard') }}" class="{% if 'analytics' in request.path %}active{% endif %}">
-                        <i class="bi bi-graph-up me-2"></i> Analytics
-                    </a>
-                </li> -->
+                {% endfor %}
             </ul>
         </nav>
 
@@ -128,6 +127,15 @@
             sidebarCollapse.addEventListener('click', function() {
                 sidebar.classList.toggle('active');
             });
+        }
+
+        // View Switcher Logic
+        function switchView(viewName) {
+            fetch('/api/switch-view', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({view: viewName})
+            }).then(response => window.location.reload());
         }
     </script>
     {% block scripts %}{% endblock %}

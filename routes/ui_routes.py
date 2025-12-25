@@ -1,5 +1,5 @@
 from flask import Blueprint, session, jsonify, request
-from project.utils.admin_nav import get_current_menu, MENU_STRUCTURE
+from routes.admin_nav import get_current_menu, MENU_STRUCTURE
 
 ui_bp = Blueprint('ui', __name__)
 
