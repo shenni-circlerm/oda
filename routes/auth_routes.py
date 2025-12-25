@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import Blueprint, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required
 from werkzeug.security import check_password_hash
 from project.models import User
@@ -17,7 +17,8 @@ def login():
             return redirect(url_for('admin.staff_dashboard'))
         
         flash('Please check your login details and try again.')
-    return render_template('login.html')
+        return redirect(url_for('customer.landing'))
+    return redirect(url_for('customer.landing'))
 
 @auth_bp.route('/logout')
 @login_required
