@@ -1,0 +1,20 @@
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+<div style="font-family: 'Montserrat', sans-serif; width: 300px; margin: auto; color: #2C3E50;">
+    <h2 style="text-align: center;">{{ data.restaurant_name }}</h2>
+    <p style="text-align: center;">Order #{{ data.order_id }} | Table {{ data.table }}</p>
+    <hr>
+    <table style="width: 100%;">
+        {% for item in data.items %}
+        <tr>
+            <td>{{ item.name }}</td>
+            <td style="text-align: right;">${{ "%.2f"|format(item.price) }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <hr>
+    <h3 style="display: flex; justify-content: space-between;">
+        <span>Total:</span>
+        <span>${{ "%.2f"|format(data.total) }}</span>
+    </h3>
+    <p style="text-align: center; font-size: 12px;">Thank you for dining with us!</p>
+</div>

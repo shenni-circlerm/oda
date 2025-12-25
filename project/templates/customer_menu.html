@@ -1,0 +1,60 @@
+<h2>Welcome to {{ restaurant.name }}</h2>
+<p>Table: {{ table.number }}</p>
+
+<div id="menu-list">
+    {% for item in menu %}
+    <div class="menu-item">
+        <h4>{{ item.name }} - ${{ item.price }}</h4>
+        <p>{{ item.description }}</p>
+        <button onclick="addToCart('{{ item.id }}', '{{ item.name }}', {{ item.price }})">
+            Add to Order
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="cart-summary" style="border-top: 1px solid #000; margin-top: 20px;">
+    <h3>Your Order</h3>
+    <ul id="cart-items"></ul>
+    <p>Total: $<span id="cart-total">0.00</span></p>
+    <button onclick="submitOrder()">Place Order</button>
+</div>
+
+let cart = [];
+
+function addToCart(id, name, price) {
+    cart.push({ id, name, price });
+    updateUI();
+}
+
+function updateUI() {
+    const list = document.getElementById('cart-items');
+    list.innerHTML = '';
+    let total = 0;
+    
+    cart.forEach(item => {
+        let li = document.createElement('li');
+        li.innerText = `${item.name} - $${item.price}`;
+        list.appendChild(li);
+        total += item.price;
+    });
+    
+    document.getElementById('cart-total').innerText = total.toFixed(2);
+}
+
+function submitOrder() {
+    if (cart.length === 0) return alert("Cart is empty!");
+
+    fetch('/place-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            table_id: "{{ table.id }}",
+            items: cart
+        })
+    }).then(res => {
+        if (res.ok) alert("Order sent to kitchen!");
+        cart = [];
+        updateUI();
+    });
+}

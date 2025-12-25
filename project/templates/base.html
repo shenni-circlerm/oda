@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}QR Order System{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/kitchen.css') }}">
+    {% block styles %}{% endblock %}
+  </head>
+  <body>
+    {% if current_user.is_authenticated and current_user.is_admin() %}
+    <!-- Admin Layout Start -->
+    <div class="wrapper">
+        <!-- Left Sidebar -->
+        <nav id="sidebar">
+            <div class="sidebar-header">
+                <h3>Oda Admin</h3>
+            </div>
+            <ul class="list-unstyled components">
+                <li>
+                    <a href="{{ url_for('admin.staff_dashboard') }}" class="{% if 'dashboard' in request.path %}active{% endif %}">
+                        <i class="bi bi-speedometer2 me-2"></i> Kitchen
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.manage_menu') }}" class="{% if 'menu' in request.path %}active{% endif %}">
+                        <i class="bi bi-journal-text me-2"></i> Menu
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.manage_users') }}" class="{% if 'users' in request.path %}active{% endif %}">
+                        <i class="bi bi-people me-2"></i> Staff
+                    </a>
+                </li>
+                <!--TODO: Future implementation--->
+                <!-- <li>
+                    <a href="{{ url_for('analytics.analytics_dashboard') }}" class="{% if 'analytics' in request.path %}active{% endif %}">
+                        <i class="bi bi-graph-up me-2"></i> Analytics
+                    </a>
+                </li> -->
+            </ul>
+        </nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <!-- Top Bar -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm px-3">
+                <button type="button" id="sidebarCollapse" class="btn btn-outline-secondary">
+                    <i class="bi bi-list"></i>
+                </button>
+                
+                <span class="navbar-brand ms-3 mb-0 h1">
+                    {{ current_user.restaurant.name if current_user.restaurant else 'Restaurant' }} Online
+                </span>
+
+                <div class="ms-auto">
+                    <div class="dropdown">
+                        <button class="btn btn-link text-dark text-decoration-none dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle fs-4"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="#">Restaurant Profile</a></li>
+                            <li><a class="dropdown-item" href="#">Change Password</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Log Out</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="container-fluid p-4">
+    {% else %}
+    <!-- Public / Customer Layout Start -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+      <div class="container">
+        <a class="navbar-brand" href="/">QR Order</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+            {% if not current_user.is_authenticated %}
+              <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
+              <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.register_restaurant') }}">Register</a></li>
+            {% else %}
+              <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <div class="container">
+    {% endif %}
+
+    <!-- Common Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-info alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Main Content Block (Defined Once) -->
+    {% block content %}{% endblock %}
+
+    {% if current_user.is_authenticated and current_user.is_admin() %}
+    <!-- Admin Layout End -->
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Public Layout End -->
+    </div>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        // Sidebar Toggle
+        const sidebarCollapse = document.getElementById('sidebarCollapse');
+        const sidebar = document.getElementById('sidebar');
+        if (sidebarCollapse && sidebar) {
+            sidebarCollapse.addEventListener('click', function() {
+                sidebar.classList.toggle('active');
+            });
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>
