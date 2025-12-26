@@ -267,7 +267,17 @@ def delete_category(category_id):
 @admin_bp.route('/admin/availability')
 @login_required
 def availability():
-    return render_template('base.html', content="Manage Availability - Coming Soon")
+    categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    uncategorized_items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id, category_id=None).all()
+    return render_template('menu_availability.html', categories=categories, uncategorized_items=uncategorized_items)
+
+@admin_bp.route('/admin/availability/toggle/<int:item_id>', methods=['POST'])
+@login_required
+def toggle_availability(item_id):
+    item = MenuItem.query.filter_by(id=item_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    item.is_available = not item.is_available
+    db.session.commit()
+    return {"success": True, "new_status": item.is_available}, 200
 
 @admin_bp.route('/admin/branding', methods=['GET', 'POST'])
 @login_required

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Availability{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">Item Availability</h2>
+        <div class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i> Toggle switches to instantly update menu availability.
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            {% for category in categories %}
+            {% if category.items %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h5 class="fw-bold mb-0 text-primary">{{ category.name }}</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for item in category.items %}
+                    <div class="list-group-item px-4 py-3 d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <img src="{{ url_for('admin.serve_menu_image', item_id=item.id) }}" class="rounded-3 bg-light me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                            <div>
+                                <h6 class="mb-0 fw-bold item-name-{{ item.id }} {{ 'text-muted text-decoration-line-through' if not item.is_available }}">{{ item.name }}</h6>
+                                <small class="text-muted">${{ "%.2f"|format(item.price) }}</small>
+                            </div>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input fs-4" type="checkbox" role="switch" 
+                                   onchange="toggleItem({{ item.id }}, this)" 
+                                   {% if item.is_available %}checked{% endif %}>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {% if uncategorized_items %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h5 class="fw-bold mb-0 text-secondary">Uncategorized</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for item in uncategorized_items %}
+                    <div class="list-group-item px-4 py-3 d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <img src="{{ url_for('admin.serve_menu_image', item_id=item.id) }}" class="rounded-3 bg-light me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                            <div>
+                                <h6 class="mb-0 fw-bold item-name-{{ item.id }} {{ 'text-muted text-decoration-line-through' if not item.is_available }}">{{ item.name }}</h6>
+                                <small class="text-muted">${{ "%.2f"|format(item.price) }}</small>
+                            </div>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input fs-4" type="checkbox" role="switch" 
+                                   onchange="toggleItem({{ item.id }}, this)" 
+                                   {% if item.is_available %}checked{% endif %}>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not categories and not uncategorized_items %}
+            <div class="text-center py-5">
+                <i class="bi bi-journal-x fs-1 text-muted mb-3 opacity-25"></i>
+                <p class="text-muted">No menu items found.</p>
+                <a href="{{ url_for('admin.manage_menu') }}" class="btn btn-primary rounded-pill">Go to Menu</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleItem(itemId, checkbox) {
+    // Optimistic UI update
+    const nameEl = document.querySelector(`.item-name-${itemId}`);
+    if (checkbox.checked) {
+        nameEl.classList.remove('text-muted', 'text-decoration-line-through');
+    } else {
+        nameEl.classList.add('text-muted', 'text-decoration-line-through');
+    }
+
+    fetch(`/admin/availability/toggle/${itemId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+        if (!response.ok) {
+            // Revert if failed
+            checkbox.checked = !checkbox.checked;
+            if (checkbox.checked) {
+                nameEl.classList.remove('text-muted', 'text-decoration-line-through');
+            } else {
+                nameEl.classList.add('text-muted', 'text-decoration-line-through');
+            }
+            alert('Failed to update status. Please try again.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        checkbox.checked = !checkbox.checked;
+        alert('Network error.');
+    });
+}
+</script>
+{% endblock %}
