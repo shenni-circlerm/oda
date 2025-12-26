@@ -18,6 +18,7 @@ MENU_STRUCTURE = {
         {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
     ],
     'menu': [
+        {'label': 'Menus', 'endpoint': 'admin.menus', 'icon': 'bi-journal-album'},
         {'label': 'Menu Items', 'endpoint': 'admin.manage_menu', 'icon': 'bi-journal-text'},
         {'label': 'Categories', 'endpoint': 'admin.categories', 'icon': 'bi-tags'},
         {'label': 'Availability', 'endpoint': 'admin.availability', 'icon': 'bi-toggle-on'},

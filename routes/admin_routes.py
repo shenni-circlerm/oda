@@ -5,9 +5,10 @@ from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 from io import BytesIO
+from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
 
-from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem
+from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu
 from extensions import db, socketio
 
 admin_bp = Blueprint('admin', __name__)
@@ -69,12 +70,13 @@ def invite_staff():
 def manage_menu():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     
     selected_item = None
     item_id = request.args.get('item_id')
     if item_id:
         selected_item = next((i for i in items if str(i.id) == str(item_id)), None)
-    return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item)
+    return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item, categories=categories)
 
 @admin_bp.route('/admin/menu/add', methods=['POST'])
 @login_required
@@ -127,6 +129,9 @@ def edit_menu_item(item_id):
         item.price = float(request.form.get('price'))
         item.description = request.form.get('description')
         item.is_available = 'is_available' in request.form
+        
+        category_id = request.form.get('category_id')
+        item.category_id = category_id if category_id else None
         
         file = request.files.get('image')
         if file and file.filename != '':
@@ -226,28 +231,90 @@ def walkin():
 def print_receipt():
     return render_template('base.html', content="Print Receipt - Coming Soon")
 
+@admin_bp.route('/admin/menus', methods=['GET', 'POST'])
+@login_required
+def menus():
+    if request.method == 'POST':
+        menu_id = request.form.get('menu_id')
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        # Parse Time and Date rules
+        start_time_str = request.form.get('start_time')
+        end_time_str = request.form.get('end_time')
+        start_date_str = request.form.get('start_date')
+        end_date_str = request.form.get('end_date')
+        
+        start_time = datetime.strptime(start_time_str, '%H:%M').time() if start_time_str else None
+        end_time = datetime.strptime(end_time_str, '%H:%M').time() if end_time_str else None
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
+
+        if menu_id:
+            # Update existing menu
+            menu = Menu.query.filter_by(id=menu_id, restaurant_id=current_user.restaurant_id).first_or_404()
+            menu.name = name
+            menu.description = description
+            menu.start_time = start_time
+            menu.end_time = end_time
+            menu.start_date = start_date
+            menu.end_date = end_date
+            menu.is_active = 'is_active' in request.form
+            db.session.commit()
+            flash('Menu updated.')
+            return redirect(url_for('admin.menus', menu_id=menu.id))
+        elif name:
+            # Create new menu
+            new_menu = Menu(name=name, description=description, restaurant_id=current_user.restaurant_id, start_time=start_time, end_time=end_time, start_date=start_date, end_date=end_date)
+            db.session.add(new_menu)
+            db.session.commit()
+            flash('Menu created successfully.')
+            return redirect(url_for('admin.menus', menu_id=new_menu.id))
+        
+    menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    
+    selected_menu = None
+    menu_id = request.args.get('menu_id')
+    if menu_id:
+        selected_menu = next((m for m in menus if str(m.id) == str(menu_id)), None)
+        
+    return render_template('menus.html', menus=menus, selected_menu=selected_menu)
+
+@admin_bp.route('/admin/menus/delete/<int:menu_id>', methods=['POST'])
+@login_required
+def delete_menu(menu_id):
+    menu = Menu.query.filter_by(id=menu_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    db.session.delete(menu)
+    db.session.commit()
+    flash('Menu deleted.')
+    return redirect(url_for('admin.menus'))
+
 @admin_bp.route('/admin/categories', methods=['GET', 'POST'])
 @login_required
 def categories():
     if request.method == 'POST':
         name = request.form.get('name')
+        menu_id = request.form.get('menu_id')
         if name:
-            new_category = Category(name=name, restaurant_id=current_user.restaurant_id)
+            new_category = Category(name=name, restaurant_id=current_user.restaurant_id, menu_id=menu_id if menu_id else None)
             db.session.add(new_category)
             db.session.commit()
             flash('Category added successfully.')
         return redirect(url_for('admin.categories'))
         
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    return render_template('menu_categories.html', categories=categories)
+    menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    return render_template('menu_categories.html', categories=categories, menus=menus)
 
 @admin_bp.route('/admin/categories/edit/<int:category_id>', methods=['POST'])
 @login_required
 def edit_category(category_id):
     category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
     name = request.form.get('name')
+    menu_id = request.form.get('menu_id')
     if name:
         category.name = name
+        category.menu_id = menu_id if menu_id else None
         db.session.commit()
         flash('Category updated.')
     return redirect(url_for('admin.categories'))

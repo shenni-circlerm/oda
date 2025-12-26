@@ -41,10 +41,24 @@ class User(UserMixin, db.Model):
     def is_superadmin(self):
         return self.role == 'superadmin'
 
+class Menu(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.String(200))
+    is_active = db.Column(db.Boolean, default=True)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    start_time = db.Column(db.Time, nullable=True)
+    end_time = db.Column(db.Time, nullable=True)
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    categories = db.relationship('Category', backref='menu')
+
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    menu_id = db.Column(db.Integer, db.ForeignKey('menu.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     items = db.relationship('MenuItem', backref='category')
 

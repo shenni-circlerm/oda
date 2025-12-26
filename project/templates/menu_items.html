@@ -91,6 +91,17 @@
                                         </div>
                                     </div>
                                     <div class="col-12">
+                                        <label class="form-label">Category</label>
+                                        <select name="category_id" class="form-select">
+                                            <option value="">Uncategorized</option>
+                                            {% for category in categories %}
+                                            <option value="{{ category.id }}" {% if selected_item.category_id == category.id %}selected{% endif %}>
+                                                {{ category.name }} {% if category.menu %}({{ category.menu.name }}){% endif %}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
                                         <label class="form-label">Description</label>
                                         <textarea name="description" class="form-control" rows="3">{{ selected_item.description }}</textarea>
                                     </div>
