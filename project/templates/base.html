@@ -17,19 +17,20 @@
         'kitchen': 'Manage active orders and preparation',
         'office': 'Administrative dashboard and reports',
         'storefront': 'Front of house and table management',
-        'menu': 'Configure menu items and availability'
+        'menu': 'Configure menu items and availability',
+        'design_store': 'Design your store and menu'
     } %}
     <div class="bg-primary text-white text-center py-2 shadow-sm d-flex justify-content-center align-items-center" style="position: sticky; top: 0; z-index: 1050;">
         <!-- View Switcher Dropdown -->
         <div class="dropdown">
             <button class="btn btn-link text-white text-decoration-none fw-bold text-uppercase dropdown-toggle p-0 border-0" type="button" id="viewDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                {{ current_view }}
+                {{ current_view.replace('_', ' ') }}
             </button>
             <ul class="dropdown-menu shadow mt-2" aria-labelledby="viewDropdown">
                 {% for view in available_views %}
                 <li>
                     <button class="dropdown-item d-flex justify-content-between align-items-center {% if view == current_view %}active{% endif %}" onclick="switchView('{{ view }}')">
-                        {{ view|title }}
+                        {{ view.replace('_', ' ')|title }}
                         {% if view == current_view %}<i class="bi bi-check"></i>{% endif %}
                     </button>
                 </li>
@@ -137,7 +138,15 @@
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({view: viewName})
-            }).then(response => window.location.reload());
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    window.location.reload();
+                }
+            });
         }
     </script>
     {% block scripts %}{% endblock %}

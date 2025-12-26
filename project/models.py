@@ -11,12 +11,18 @@ class Restaurant(db.Model):
     
     # Branding Fields
     logo_path = db.Column(db.String(255), default='default_logo.png')
+    logo_data = db.Column(db.LargeBinary)
+    logo_mimetype = db.Column(db.String(50))
     brand_color = db.Column(db.String(7), default='#e74c3c') # Hex code
     banner_image = db.Column(db.String(255))
+    banner_data = db.Column(db.LargeBinary)
+    banner_mimetype = db.Column(db.String(50))
     tagline = db.Column(db.String(200))
+    pages_config = db.Column(db.JSON, default={})
 
     items = db.relationship('MenuItem', backref='restaurant')
     tables = db.relationship('Table', backref='restaurant')
+    categories = db.relationship('Category', backref='restaurant')
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -34,14 +40,24 @@ class User(UserMixin, db.Model):
     def is_superadmin(self):
         return self.role == 'superadmin'
 
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    items = db.relationship('MenuItem', backref='category')
+
 class MenuItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
     image_filename = db.Column(db.String(255), default="default_food.jpg")
+    image_data = db.Column(db.LargeBinary)
+    image_mimetype = db.Column(db.String(50))
     is_available = db.Column(db.Boolean, default=True)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Table(db.Model):

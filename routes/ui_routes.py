@@ -1,4 +1,4 @@
-from flask import Blueprint, session, jsonify, request
+from flask import Blueprint, session, jsonify, request, url_for
 from routes.admin_nav import get_current_menu, MENU_STRUCTURE
 
 ui_bp = Blueprint('ui', __name__)
@@ -10,7 +10,12 @@ def switch_view():
     
     if view and view in MENU_STRUCTURE:
         session['current_view'] = view
-        return jsonify({'status': 'success', 'view': view})
+        
+        # Get the default endpoint (first item in the menu)
+        menu_items = MENU_STRUCTURE[view]
+        default_endpoint = menu_items[0]['endpoint'] if menu_items else 'customer.landing'
+        
+        return jsonify({'status': 'success', 'view': view, 'redirect_url': url_for(default_endpoint)})
     
     return jsonify({'status': 'error', 'message': 'Invalid view requested'}), 400
 

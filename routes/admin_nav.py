@@ -21,6 +21,11 @@ MENU_STRUCTURE = {
         {'label': 'Menu Items', 'endpoint': 'admin.manage_menu', 'icon': 'bi-journal-text'},
         {'label': 'Categories', 'endpoint': 'admin.categories', 'icon': 'bi-tags'},
         {'label': 'Availability', 'endpoint': 'admin.availability', 'icon': 'bi-toggle-on'},
+    ],
+    'design_store': [
+        {'label': 'Design', 'endpoint': 'admin.menu_design', 'icon': 'bi-pencil-square'},
+        {'label': 'Branding', 'endpoint': 'admin.branding', 'icon': 'bi-palette'},
+        {'label': 'QR Codes', 'endpoint': 'admin.qr_codes', 'icon': 'bi-qr-code'},
     ]
 }
 

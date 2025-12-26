@@ -1,5 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}{{ restaurant.name }} - Menu{% endblock %}
+
+{% block content %}
 <h2>Welcome to {{ restaurant.name }}</h2>
-<p>Table: {{ table.number }}</p>
+<p>Table: {{ table.number if table else 'Unknown' }}</p>
 
 <div id="menu-list">
     {% for item in menu %}
@@ -19,7 +24,10 @@
     <p>Total: $<span id="cart-total">0.00</span></p>
     <button onclick="submitOrder()">Place Order</button>
 </div>
+{% endblock %}
 
+{% block scripts %}
+<script>
 let cart = [];
 
 function addToCart(id, name, price) {
@@ -43,13 +51,15 @@ function updateUI() {
 }
 
 function submitOrder() {
+    const tableId = "{{ table.id if table else '' }}";
+    if (!tableId) return alert("Table not identified. Please scan QR code again.");
     if (cart.length === 0) return alert("Cart is empty!");
 
     fetch('/place-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            table_id: "{{ table.id }}",
+            table_id: tableId,
             items: cart
         })
     }).then(res => {
@@ -58,3 +68,5 @@ function submitOrder() {
         updateUI();
     });
 }
+</script>
+{% endblock %}
