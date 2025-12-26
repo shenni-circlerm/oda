@@ -13,7 +13,7 @@
 }
 
 body {
-    background-color: var(--bg-light);
+    background-color: #FFFFFF;
     color: var(--text-dark);
     font-family: 'Inter', sans-serif;
 }
@@ -30,24 +30,39 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 #sidebar {
-    min-width: 250px;
-    max-width: 250px;
-    background: var(--surface);
+    min-width: 80px;
+    max-width: 80px;
+    background: transparent;
     color: var(--text-dark);
     transition: all 0.3s;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-    min-height: 100vh;
+    box-shadow: none;
+    min-height: calc(100vh - 40px);
     z-index: 999;
+    display: flex;
+    flex-direction: column;
 }
 
 #sidebar.active {
-    margin-left: -250px;
+    min-width: 80px;
+    max-width: 80px;
 }
 
 #sidebar .sidebar-header {
     padding: 20px;
-    background: var(--bg-light);
+    background: transparent;
     border-bottom: 1px solid #eee;
+}
+
+/* Hide header and switcher always */
+#sidebar .sidebar-header h3, 
+#sidebar .view-switcher {
+    display: none;
+}
+
+/* Ensure they stay hidden when active */
+#sidebar.active .sidebar-header h3, 
+#sidebar.active .view-switcher {
+    display: none;
 }
 
 
@@ -59,6 +74,7 @@ h1, h2, h3, h4, h5, h6 {
     padding: 15px 20px;
     font-size: 1.1em;
     display: block;
+    position: relative;
     color: var(--text-dark);
     text-decoration: none;
     border-left: 4px solid transparent;
@@ -67,6 +83,43 @@ h1, h2, h3, h4, h5, h6 {
 #sidebar ul li a:hover {
     background: var(--bg-light);
     color: var(--primary-color);
+}
+
+/* Center icons always */
+#sidebar ul li a {
+    text-align: center;
+    padding: 15px 0;
+}
+
+#sidebar ul li a i {
+    margin-right: 0 !important;
+    font-size: 1.5rem;
+}
+
+/* Tooltip Slide Out */
+#sidebar .link-text {
+    position: absolute;
+    left: 70px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: var(--text-dark);
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    z-index: 1000;
+    display: block;
+}
+
+#sidebar ul li a:hover .link-text {
+    opacity: 1;
+    visibility: visible;
+    left: 90px;
 }
 
 #sidebar ul li a.active {
@@ -138,8 +191,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media (max-width: 768px) {
-    #sidebar { margin-left: -250px; }
-    #sidebar.active { margin-left: 0; }
+    #sidebar { margin-left: -80px; }
+    #sidebar.active { 
+        margin-left: 0; 
+        min-width: 80px;
+    }
 }
 
 /* --- Menu Page Specifics --- */

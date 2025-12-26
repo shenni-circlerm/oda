@@ -13,6 +13,32 @@
   <body>
     {% if current_user.is_authenticated and current_user.is_admin() %}
     <!-- Admin Layout Start -->
+    {% set view_descriptions = {
+        'kitchen': 'Manage active orders and preparation',
+        'office': 'Administrative dashboard and reports',
+        'storefront': 'Front of house and table management',
+        'menu': 'Configure menu items and availability'
+    } %}
+    <div class="bg-primary text-white text-center py-2 shadow-sm d-flex justify-content-center align-items-center" style="position: sticky; top: 0; z-index: 1050;">
+        <!-- View Switcher Dropdown -->
+        <div class="dropdown">
+            <button class="btn btn-link text-white text-decoration-none fw-bold text-uppercase dropdown-toggle p-0 border-0" type="button" id="viewDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                {{ current_view }}
+            </button>
+            <ul class="dropdown-menu shadow mt-2" aria-labelledby="viewDropdown">
+                {% for view in available_views %}
+                <li>
+                    <button class="dropdown-item d-flex justify-content-between align-items-center {% if view == current_view %}active{% endif %}" onclick="switchView('{{ view }}')">
+                        {{ view|title }}
+                        {% if view == current_view %}<i class="bi bi-check"></i>{% endif %}
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <span class="mx-2 opacity-75">|</span>
+        <span class="small opacity-90">{{ view_descriptions.get(current_view, 'Lorem Ipsum') }}</span>
+    </div>
     <div class="wrapper">
         <!-- Left Sidebar -->
         <nav id="sidebar">
@@ -20,56 +46,32 @@
                 <h3>Oda Admin</h3>
             </div>
             
-            <!-- View Switcher -->
-            <div class="px-3 mb-3">
-                <label class="text-muted small mb-1">Current View</label>
-                <select class="form-select form-select-sm" onchange="switchView(this.value)">
-                    {% for view in available_views %}
-                    <option value="{{ view }}" {% if current_view == view %}selected{% endif %}>
-                        {{ view|title }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
             <ul class="list-unstyled components">
                 {% for item in sidebar_menu %}
                 <li>
                     <a href="{{ url_for(item.endpoint) }}" class="{% if request.endpoint == item.endpoint %}active{% endif %}">
-                        <i class="bi {{ item.icon }} me-2"></i> {{ item.label }}
+                        <i class="bi {{ item.icon }} me-2"></i> <span class="link-text">{{ item.label }}</span>
                     </a>
                 </li>
                 {% endfor %}
+            </ul>
+
+            <ul class="list-unstyled mt-auto pb-3">
+                <li>
+                    <a href="{{ url_for('auth.change_password') }}">
+                        <i class="bi bi-person-circle me-2"></i> <span class="link-text">Profile</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('auth.logout') }}">
+                        <i class="bi bi-box-arrow-right me-2"></i> <span class="link-text">Logout</span>
+                    </a>
+                </li>
             </ul>
         </nav>
 
         <!-- Page Content -->
         <div id="content">
-            <!-- Top Bar -->
-            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm px-3">
-                <button type="button" id="sidebarCollapse" class="btn btn-outline-secondary">
-                    <i class="bi bi-list"></i>
-                </button>
-                
-                <span class="navbar-brand ms-3 mb-0 h1">
-                    {{ current_user.restaurant.name if current_user.restaurant else 'Restaurant' }} Online
-                </span>
-
-                <div class="ms-auto">
-                    <div class="dropdown">
-                        <button class="btn btn-link text-dark text-decoration-none dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle fs-4"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                            <li><a class="dropdown-item" href="#">Restaurant Profile</a></li>
-                            <li><a class="dropdown-item" href="#">Change Password</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Log Out</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </nav>
-
             <div class="container-fluid p-4">
     {% else %}
     <!-- Public / Customer Layout Start -->
