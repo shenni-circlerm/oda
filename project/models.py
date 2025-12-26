@@ -41,6 +41,11 @@ class User(UserMixin, db.Model):
     def is_superadmin(self):
         return self.role == 'superadmin'
 
+menu_category_association = db.Table('menu_category_association',
+    db.Column('menu_id', db.Integer, db.ForeignKey('menu.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('category.id'), primary_key=True)
+)
+
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
@@ -52,7 +57,7 @@ class Menu(db.Model):
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    categories = db.relationship('Category', backref='menu')
+    categories = db.relationship('Category', secondary=menu_category_association, backref='menus')
 
 menu_item_categories = db.Table('menu_item_categories',
     db.Column('menu_item_id', db.Integer, db.ForeignKey('menu_item.id'), primary_key=True),
@@ -63,9 +68,10 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
-    menu_id = db.Column(db.Integer, db.ForeignKey('menu.id'), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     # items relationship is defined via backref in MenuItem
+    # menus relationship is defined via backref in Menu
 
 class MenuItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)

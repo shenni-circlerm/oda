@@ -87,6 +87,7 @@ def manage_menu():
 @login_required
 def add_menu_item():
     if request.form.get('quick_add'):
+        category_id = request.form.get('category_id')
         count = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).count()
         new_item = MenuItem(
             name="New Item",
@@ -95,6 +96,12 @@ def add_menu_item():
             restaurant_id=current_user.restaurant_id,
             is_available=False
         )
+        
+        if category_id:
+            category = db.session.get(Category, category_id)
+            if category:
+                new_item.categories.append(category)
+                
         db.session.add(new_item)
         db.session.commit()
         return redirect(url_for('admin.manage_menu', item_id=new_item.id))
@@ -312,12 +319,24 @@ def delete_menu(menu_id):
 def categories():
     if request.method == 'POST':
         name = request.form.get('name')
-        menu_id = request.form.get('menu_id')
+        menu_ids = request.form.getlist('menu_ids')
         if name:
-            new_category = Category(name=name, restaurant_id=current_user.restaurant_id, menu_id=menu_id if menu_id else None)
+            new_category = Category(name=name, restaurant_id=current_user.restaurant_id)
+            for m_id in menu_ids:
+                menu = db.session.get(Menu, m_id)
+                if menu:
+                    new_category.menus.append(menu)
             db.session.add(new_category)
             db.session.commit()
             flash('Category added successfully.')
+            
+            # If returning to another page (e.g. item edit), honor that
+            return_to = request.form.get('return_to')
+            if return_to:
+                return redirect(return_to)
+            
+            # Otherwise go to the new category in the list
+            return redirect(url_for('admin.categories', category_id=new_category.id))
         
         return_to = request.form.get('return_to')
         if return_to:
@@ -327,19 +346,105 @@ def categories():
         
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    return render_template('menu_categories.html', categories=categories, menus=menus)
+    all_items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).order_by(MenuItem.name).all()
+    
+    selected_category = None
+    category_id = request.args.get('category_id')
+    if category_id:
+        selected_category = next((c for c in categories if str(c.id) == str(category_id)), None)
+        
+    if not selected_category and categories:
+        selected_category = categories[0]
+        
+    return render_template('menu_categories.html', categories=categories, menus=menus, selected_category=selected_category, all_items=all_items)
 
 @admin_bp.route('/admin/categories/edit/<int:category_id>', methods=['POST'])
 @login_required
 def edit_category(category_id):
     category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
     name = request.form.get('name')
-    menu_id = request.form.get('menu_id')
+    menu_ids = request.form.getlist('menu_ids')
     if name:
         category.name = name
-        category.menu_id = menu_id if menu_id else None
+        category.menus = [] # Clear existing associations
+        for m_id in menu_ids:
+            menu = db.session.get(Menu, m_id)
+            if menu:
+                category.menus.append(menu)
         db.session.commit()
         flash('Category updated.')
+    return redirect(url_for('admin.categories', category_id=category.id))
+
+@admin_bp.route('/admin/categories/add_item', methods=['POST'])
+@login_required
+def add_item_to_category():
+    category_id = request.form.get('category_id')
+    item_name = request.form.get('item_name')
+    
+    if not category_id or not item_name:
+        return redirect(url_for('admin.categories'))
+
+    category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    
+    # Check if item exists
+    item = MenuItem.query.filter_by(name=item_name, restaurant_id=current_user.restaurant_id).first()
+    
+    if not item:
+        # Create new item
+        count = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).count()
+        item = MenuItem(
+            name=item_name,
+            sku=f"ITEM-{count + 1:03d}",
+            price=0.0,
+            restaurant_id=current_user.restaurant_id,
+            is_available=True
+        )
+        db.session.add(item)
+    
+    if category not in item.categories:
+        item.categories.append(category)
+        db.session.commit()
+        flash(f'Item "{item.name}" added to category.')
+    
+    return redirect(url_for('admin.categories', category_id=category_id))
+
+@admin_bp.route('/admin/categories/remove_item/<int:category_id>/<int:item_id>', methods=['POST'])
+@login_required
+def remove_item_from_category(category_id, item_id):
+    category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    item = MenuItem.query.filter_by(id=item_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    
+    if category in item.categories:
+        item.categories.remove(category)
+        db.session.commit()
+        
+        # Store for undo
+        session['last_removed_item_category'] = {
+            'item_id': item.id,
+            'category_id': category.id
+        }
+        
+        undo_url = url_for('admin.undo_remove_item_from_category')
+        flash(f'Item removed from category. <a href="{undo_url}" class="fw-bold text-decoration-underline">Undo</a>')
+        
+    return redirect(url_for('admin.categories', category_id=category_id))
+
+@admin_bp.route('/admin/categories/undo_remove_item', methods=['GET'])
+@login_required
+def undo_remove_item_from_category():
+    data = session.get('last_removed_item_category')
+    if data:
+        item = MenuItem.query.filter_by(id=data['item_id'], restaurant_id=current_user.restaurant_id).first()
+        category = Category.query.filter_by(id=data['category_id'], restaurant_id=current_user.restaurant_id).first()
+        
+        if item and category and category not in item.categories:
+            item.categories.append(category)
+            db.session.commit()
+            flash('Item restored to category.')
+            session.pop('last_removed_item_category', None)
+            return redirect(url_for('admin.categories', category_id=category.id))
+            
+    flash('Nothing to undo.')
     return redirect(url_for('admin.categories'))
 
 @admin_bp.route('/admin/categories/delete/<int:category_id>', methods=['POST'])
@@ -353,6 +458,14 @@ def delete_category(category_id):
     db.session.commit()
     flash('Category deleted.')
     return redirect(url_for('admin.categories'))
+
+@admin_bp.route('/admin/categories/toggle/<int:category_id>', methods=['POST'])
+@login_required
+def toggle_category_status(category_id):
+    category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    category.is_active = not category.is_active
+    db.session.commit()
+    return {"success": True, "new_status": category.is_active}, 200
 
 @admin_bp.route('/admin/availability')
 @login_required

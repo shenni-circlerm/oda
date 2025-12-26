@@ -21,7 +21,7 @@ MENU_STRUCTURE = {
         {'label': 'Menus', 'endpoint': 'admin.menus', 'icon': 'bi-journal-album'},
         {'label': 'Menu Items', 'endpoint': 'admin.manage_menu', 'icon': 'bi-journal-text'},
         {'label': 'Categories', 'endpoint': 'admin.categories', 'icon': 'bi-tags'},
-        {'label': 'Availability', 'endpoint': 'admin.availability', 'icon': 'bi-toggle-on'},
+        #{'label': 'Availability', 'endpoint': 'admin.availability', 'icon': 'bi-toggle-on'},
     ],
     'design_store': [
         {'label': 'Design', 'endpoint': 'admin.menu_design', 'icon': 'bi-pencil-square'},

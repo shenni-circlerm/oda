@@ -174,13 +174,15 @@
                         <input type="text" name="name" class="form-control" placeholder="e.g. Desserts" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Menu</label>
-                        <select name="menu_id" class="form-select">
-                            <option value="">General</option>
+                        <label class="form-label">Menus</label>
+                        <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
                             {% for menu in menus %}
-                            <option value="{{ menu.id }}">{{ menu.name }}</option>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="menu_ids" value="{{ menu.id }}" id="quick_menu_{{ menu.id }}">
+                                <label class="form-check-label" for="quick_menu_{{ menu.id }}">{{ menu.name }}</label>
+                            </div>
                             {% endfor %}
-                        </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
