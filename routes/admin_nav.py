@@ -14,6 +14,7 @@ MENU_STRUCTURE = {
     ],
     'storefront': [
         {'label': 'Active Tables', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-layout-text-window-reverse'},
+        {'label': 'Tables & QR', 'endpoint': 'admin.qr_codes', 'icon': 'bi-qr-code'},
         {'label': 'Walk-in Orders', 'endpoint': 'admin.walkin', 'icon': 'bi-person-walking'},
         {'label': 'Print Receipt', 'endpoint': 'admin.print_receipt', 'icon': 'bi-printer'},
     ],
@@ -25,7 +26,7 @@ MENU_STRUCTURE = {
     'design_store': [
         {'label': 'Design', 'endpoint': 'admin.menu_design', 'icon': 'bi-pencil-square'},
         {'label': 'Branding', 'endpoint': 'admin.branding', 'icon': 'bi-palette'},
-        {'label': 'QR Codes', 'endpoint': 'admin.qr_codes', 'icon': 'bi-qr-code'},
+        {'label': 'QR Design', 'endpoint': 'admin.qr_design', 'icon': 'bi-palette2'},
     ]
 }
 

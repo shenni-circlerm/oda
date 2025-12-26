@@ -374,6 +374,30 @@ def menu_design():
 
     return render_template('menu_design.html', config=config)
 
+@admin_bp.route('/admin/qr-design', methods=['GET', 'POST'])
+@login_required
+def qr_design():
+    restaurant = db.session.get(Restaurant, current_user.restaurant_id)
+    
+    default_config = {
+        'color': '000000',
+        'bgcolor': 'FFFFFF'
+    }
+    
+    current_config = restaurant.qr_config or {}
+    config = {**default_config, **current_config}
+    
+    if request.method == 'POST':
+        config['color'] = request.form.get('color', '#000000').lstrip('#')
+        config['bgcolor'] = request.form.get('bgcolor', '#FFFFFF').lstrip('#')
+        restaurant.qr_config = config
+        flag_modified(restaurant, "qr_config")
+        db.session.commit()
+        flash("QR Design updated.")
+        return redirect(url_for('admin.qr_design'))
+        
+    return render_template('qr_design.html', config=config)
+
 @admin_bp.route('/admin/qr-codes', methods=['GET', 'POST'])
 @login_required
 def qr_codes():

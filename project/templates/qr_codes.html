@@ -27,8 +27,11 @@
                     
                     <!-- QR Code Generation using API -->
                     {% set qr_url = request.host_url ~ 'menu/' ~ restaurant.slug ~ '?table=' ~ table.number %}
+                    {% set qr_color = restaurant.qr_config.get('color', '000000') %}
+                    {% set qr_bgcolor = restaurant.qr_config.get('bgcolor', 'FFFFFF') %}
+                    
                     <div class="bg-light p-3 rounded mb-3">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ qr_url }}" 
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ qr_url }}&color={{ qr_color }}&bgcolor={{ qr_bgcolor }}" 
                              alt="QR for Table {{ table.number }}" 
                              class="img-fluid"
                              style="width: 150px; height: 150px;">
@@ -38,7 +41,7 @@
                         <a href="{{ qr_url }}" target="_blank" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-link-45deg me-1"></i> Test Link
                         </a>
-                        <a href="https://api.qrserver.com/v1/create-qr-code/?size=500x500&data={{ qr_url }}" 
+                        <a href="https://api.qrserver.com/v1/create-qr-code/?size=500x500&data={{ qr_url }}&color={{ qr_color }}&bgcolor={{ qr_bgcolor }}" 
                            download="table-{{ table.number }}-qr.png" 
                            target="_blank"
                            class="btn btn-primary btn-sm">

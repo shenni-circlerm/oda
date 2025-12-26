@@ -19,6 +19,7 @@ class Restaurant(db.Model):
     banner_mimetype = db.Column(db.String(50))
     tagline = db.Column(db.String(200))
     pages_config = db.Column(db.JSON, default={})
+    qr_config = db.Column(db.JSON, default={})
 
     items = db.relationship('MenuItem', backref='restaurant')
     tables = db.relationship('Table', backref='restaurant')
