@@ -14,7 +14,7 @@ MENU_STRUCTURE = {
     ],
     'store_front': [
         {'label': 'Tables', 'endpoint': 'admin.storefront_tables', 'icon': 'bi-grid-3x3'},
-        {'label': 'Active Orders', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-receipt'},
+        {'label': 'Active Orders', 'endpoint': 'admin.storefront_orders', 'icon': 'bi-receipt'},
         {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
     ],
     'menu': [

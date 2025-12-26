@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Active Orders{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row h-100">
+        <!-- Left Column: Order List -->
+        <div class="col-md-4 col-lg-3 border-end bg-white p-0" style="min-height: calc(100vh - 100px);">
+            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">Active Orders</h5>
+                <button class="btn btn-sm btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#newOrderModal">
+                    <i class="bi bi-plus-lg"></i> New Order
+                </button>
+            </div>
+            <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
+                {% for order in orders %}
+                <a href="{{ url_for('admin.storefront_orders', order_id=order.id) }}" 
+                   class="list-group-item list-group-item-action py-3 border-0 {% if selected_order and selected_order.id == order.id %}bg-secondary bg-opacity-10{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="fw-bold">Table {{ order.table.number }}</span>
+                        <span class="badge rounded-pill bg-{{ 'warning' if order.status == 'pending' else ('info' if order.status == 'preparing' else ('success' if order.status == 'ready' else 'secondary')) }} text-dark">
+                            {{ order.status|title }}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end">
+                        <small class="text-muted">#{{ order.id }} &bull; {{ order.created_at.strftime('%H:%M') }}</small>
+                        <small class="fw-bold">{{ order.items|length }} items</small>
+                    </div>
+                </a>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <p class="mb-0">No active orders.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Right Column: Order Details -->
+        <div class="col-md-8 col-lg-9 p-4 bg-light">
+            {% if selected_order %}
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="fw-bold mb-0">Order #{{ selected_order.id }}</h4>
+                        <span class="text-muted">Table {{ selected_order.table.number }}</span>
+                    </div>
+                    <button class="btn btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                        <i class="bi bi-plus-lg me-2"></i>Add Item
+                    </button>
+                </div>
+                <div class="card-body p-0 overflow-auto">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="bg-light sticky-top">
+                            <tr>
+                                <th class="ps-4">Item</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end pe-4" style="width: 50px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set ns = namespace(total=0) %}
+                            {% for item in selected_order.items %}
+                            {% set ns.total = ns.total + (item.menu_item.price * item.quantity) %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-primary me-3">{{ item.quantity }}x</span>
+                                        <div>
+                                            <div class="fw-bold">{{ item.menu_item.name }}</div>
+                                            {% if item.menu_item.sku %}
+                                            <small class="text-muted">SKU: {{ item.menu_item.sku }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-end">${{ "%.2f"|format(item.menu_item.price * item.quantity) }}</td>
+                                <td class="text-end pe-4" style="width: 100px;">
+                                    <button type="button" class="btn btn-link text-primary p-0 btn-sm me-2" data-bs-toggle="modal" data-bs-target="#editItemModal{{ item.id }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-link text-danger p-0 btn-sm" data-bs-toggle="modal" data-bs-target="#deleteItemModal{{ item.id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="bg-light border-top">
+                            <tr>
+                                <td class="ps-4 fw-bold">Total</td>
+                                <td class="text-end fw-bold">${{ "%.2f"|format(ns.total) }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                <i class="bi bi-receipt fs-1 mb-3 opacity-25"></i>
+                <p>Select an order to view details.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modals -->
+{% if selected_order %}
+    {% for item in selected_order.items %}
+    <div class="modal fade" id="editItemModal{{ item.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">Edit Quantity</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form method="POST" action="{{ url_for('admin.storefront_orders') }}">
+                        <input type="hidden" name="action" value="update_item_quantity">
+                        <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                        <input type="hidden" name="item_id" value="{{ item.id }}">
+                        <div class="mb-3">
+                            <label class="form-label text-muted">
+                                {{ item.menu_item.name }}
+                                {% if item.menu_item.sku %}<small>({{ item.menu_item.sku }})</small>{% endif %}
+                            </label>
+                            <div class="input-group">
+                                <button class="btn btn-outline-secondary" type="button" onclick="this.parentNode.querySelector('input').stepDown()">-</button>
+                                <input type="number" name="quantity" class="form-control text-center" value="{{ item.quantity }}" min="1" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="this.parentNode.querySelector('input').stepUp()">+</button>
+                            </div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary rounded-pill">Update</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Delete Item Modals -->
+{% if selected_order %}
+    {% for item in selected_order.items %}
+    <div class="modal fade" id="deleteItemModal{{ item.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-body text-center p-4">
+                    <div class="text-danger mb-3" style="font-size: 3rem;"><i class="bi bi-exclamation-triangle"></i></div>
+                    <h5 class="fw-bold">Remove Item?</h5>
+                    <p class="text-muted">Are you sure you want to remove "{{ item.menu_item.name }}" from this order?</p>
+                    <div class="d-flex justify-content-center gap-2 mt-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                        <form method="POST" action="{{ url_for('admin.storefront_orders') }}" class="d-inline">
+                            <input type="hidden" name="action" value="remove_item">
+                            <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="btn btn-danger rounded-pill px-4">Remove</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Add Item Modal -->
+{% if selected_order %}
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Add Item to Order #{{ selected_order.id }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for item in menu_items %}
+                    <form method="POST" action="{{ url_for('admin.storefront_orders') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">
+                        <input type="hidden" name="action" value="add_item">
+                        <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                        <input type="hidden" name="menu_item_id" value="{{ item.id }}">
+                        <div>
+                            <div class="fw-bold">{{ item.name }}</div>
+                            <small class="text-muted">
+                                {% if item.sku %}SKU: {{ item.sku }} &bull; {% endif %}
+                                ${{ "%.2f"|format(item.price) }}
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill">Add</button>
+                    </form>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-journal-x fs-1 text-muted mb-2"></i>
+                        <p class="text-muted mb-3">No Menu Yet</p>
+                        <a href="{{ url_for('admin.menu') }}" class="btn btn-sm btn-primary rounded-pill">Create one</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- New Order Modal -->
+<div class="modal fade" id="newOrderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Create New Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                <input type="hidden" name="action" value="create_order">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select an Available Table</label>
+                        <select name="table_id" class="form-select" required>
+                            <option value="" disabled selected>Choose a table...</option>
+                            {% for table in available_tables %}
+                            <option value="{{ table.id }}">Table {{ table.number }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Order</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

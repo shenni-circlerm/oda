@@ -50,6 +50,7 @@ class Category(db.Model):
 
 class MenuItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(50), nullable=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
@@ -113,5 +114,6 @@ class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_item.id'))
+    quantity = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     menu_item = db.relationship('MenuItem')

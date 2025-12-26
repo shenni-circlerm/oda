@@ -7,7 +7,7 @@ import os
 from io import BytesIO
 from sqlalchemy.orm.attributes import flag_modified
 
-from project.models import User, Restaurant, Order, MenuItem, Table, Category
+from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem
 from extensions import db, socketio
 
 admin_bp = Blueprint('admin', __name__)
@@ -16,7 +16,7 @@ admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.before_request
 def restrict_bp_access():
-    if not current_user.is_authenticated and request.endpoint != 'admin.register_restaurant':
+    if not current_user.is_authenticated:
         return redirect(url_for('customer.landing'))
 
 def admin_required(f):
@@ -26,40 +26,6 @@ def admin_required(f):
             abort(403) # Forbidden
         return f(*args, **kwargs)
     return decorated_function
-
-@admin_bp.route('/register', methods=['GET', 'POST'])
-def register_restaurant():
-    if request.method == 'POST':
-        restaurant_name = request.form.get('restaurant_name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        
-        if User.query.filter_by(email=email).first():
-            flash("Email already registered.")
-            return redirect(url_for('admin.register_restaurant'))
-
-        new_restaurant = Restaurant(
-            name=restaurant_name,
-            slug=restaurant_name.lower().replace(" ", "-")
-        )
-        db.session.add(new_restaurant)
-        db.session.flush()
-
-        hashed_pw = generate_password_hash(password)
-        new_admin = User(
-            email=email,
-            password=hashed_pw,
-            role='admin',
-            restaurant_id=new_restaurant.id
-        )
-        
-        db.session.add(new_admin)
-        db.session.commit()
-        
-        flash("Account created! You can now log in.")
-        return redirect(url_for('customer.landing'))
-
-    return render_template('register.html')
 
 @admin_bp.route('/admin/dashboard')
 @login_required
@@ -109,11 +75,13 @@ def manage_menu():
 @login_required
 def add_menu_item():
     name = request.form.get('name')
+    sku = request.form.get('sku')
     price = request.form.get('price')
     description = request.form.get('description')
     
     new_item = MenuItem(
         name=name,
+        sku=sku,
         price=float(price),
         description=description,
         restaurant_id=current_user.restaurant_id
@@ -137,6 +105,7 @@ def edit_menu_item(item_id):
 
     if request.method == 'POST':
         item.name = request.form.get('name')
+        item.sku = request.form.get('sku')
         item.price = float(request.form.get('price'))
         item.description = request.form.get('description')
         item.is_available = 'is_available' in request.form
@@ -651,3 +620,98 @@ def set_table_status(table_id):
         flash("Invalid status.", "danger")
         
     return redirect(url_for('admin.storefront_tables', table_id=table.id))
+
+@admin_bp.route('/admin/storefront/orders', methods=['GET', 'POST'])
+@login_required
+def storefront_orders():
+    restaurant = db.session.get(Restaurant, current_user.restaurant_id)
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        order_id = request.form.get('order_id')
+        
+        if action == 'add_item':
+            menu_item_id = request.form.get('menu_item_id')
+            if order_id and menu_item_id:
+                # Check if item already exists in order
+                existing_item = OrderItem.query.filter_by(order_id=order_id, menu_item_id=menu_item_id).first()
+                if existing_item:
+                    existing_item.quantity += 1
+                    flash('Item quantity updated.')
+                else:
+                    order = Order.query.filter_by(id=order_id, restaurant_id=restaurant.id).first()
+                    if order:
+                        new_item = OrderItem(order_id=order.id, menu_item_id=menu_item_id, quantity=1)
+                        db.session.add(new_item)
+                        flash('Item added to order.')
+                db.session.commit()
+        
+        elif action == 'remove_item':
+            item_id = request.form.get('item_id')
+            if item_id:
+                item = OrderItem.query.join(Order).filter(OrderItem.id == item_id, Order.restaurant_id == restaurant.id).first()
+                if item:
+                    db.session.delete(item)
+                    db.session.commit()
+                    flash('Item removed.')
+        
+        elif action == 'create_order':
+            table_id = request.form.get('table_id')
+            if table_id:
+                existing_order = Order.query.filter_by(
+                    table_id=table_id, 
+                    restaurant_id=restaurant.id
+                ).filter(
+                    Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid'])
+                ).first()
+
+                if existing_order:
+                    flash('Table already has an active order.')
+                    return redirect(url_for('admin.storefront_orders', order_id=existing_order.id))
+
+                new_order = Order(
+                    table_id=table_id,
+                    restaurant_id=restaurant.id,
+                    status='pending'
+                )
+                db.session.add(new_order)
+                db.session.commit()
+                flash('New order created. You can now add items.')
+                return redirect(url_for('admin.storefront_orders', order_id=new_order.id))
+        
+        return redirect(url_for('admin.storefront_orders', order_id=order_id))
+
+    orders = Order.query.filter_by(restaurant_id=restaurant.id).filter(
+        Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid'])
+    ).order_by(Order.created_at.desc()).all()
+    
+    menu_items = MenuItem.query.filter_by(restaurant_id=restaurant.id, is_available=True).all()
+    
+    # --- DEBUG PRINTS START ---
+    print("\n--- Debugging Available Tables for New Order ---")
+    all_restaurant_tables = Table.query.filter_by(restaurant_id=restaurant.id).all()
+    print(f"Total tables for restaurant: {len(all_restaurant_tables)}")
+    for t in all_restaurant_tables:
+        print(f"  - Table ID: {t.id}, Number: {t.number}, Status: '{t.status}'")
+
+    active_table_ids = [o.table_id for o in orders]
+    print(f"Active table IDs from orders: {active_table_ids}")
+    
+    available_tables = Table.query.filter(
+        Table.restaurant_id == restaurant.id,
+        Table.id.notin_(active_table_ids), # Exclude tables with active orders
+        Table.status != 'maintenance'      # Exclude tables under maintenance
+    ).all()
+    print(f"Final 'available_tables' count after filtering: {len(available_tables)}")
+    print("------------------------------------------------\n")
+    # --- DEBUG PRINTS END ---
+    
+    selected_order = None
+    selected_id = request.args.get('order_id')
+    if selected_id:
+        selected_order = next((o for o in orders if str(o.id) == str(selected_id)), None)
+    
+    if not selected_order and orders:
+        selected_order = orders[0]
+
+    return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables)
