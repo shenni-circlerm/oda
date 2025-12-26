@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Design Store{% endblock %}
+
+{% block styles %}
+<style>
+    /* Split Layout */
+    .design-container {
+        height: calc(100vh - 100px); /* Adjust based on top bar height */
+        overflow: hidden;
+    }
+    
+    .preview-pane {
+        background-color: #f0f2f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-right: 1px solid #dee2e6;
+    }
+
+    .config-pane {
+        background-color: #fff;
+        overflow-y: auto;
+    }
+
+    /* Phone Mockup */
+    .phone-mockup {
+        width: 375px;
+        height: 667px;
+        background: #fff;
+        border: 12px solid #333;
+        border-radius: 30px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .phone-header {
+        height: 25px;
+        background: #333;
+        width: 100%;
+        position: absolute;
+        top: 0;
+        z-index: 10;
+        border-radius: 18px 18px 0 0;
+    }
+
+    .phone-screen {
+        flex: 1;
+        padding-top: 30px;
+        overflow-y: auto;
+        background: #fff;
+    }
+
+    .preview-placeholder {
+        padding: 2rem;
+        text-align: center;
+        color: #adb5bd;
+        margin-top: 50%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row g-0 design-container">
+        <!-- Left Column: Preview -->
+        <div class="col-md-8 preview-pane">
+            <div class="phone-mockup">
+                <div class="phone-header"></div>
+                <div class="phone-screen">
+                    <div id="preview-content" class="h-100 w-100 bg-white">
+                        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted p-4 text-center">
+                            <p>Select a page on the right to edit and preview.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Configuration -->
+        <div class="col-md-4 config-pane">
+            <div class="p-4">
+                <h4 class="fw-bold mb-4">Store Pages</h4>
+                <form method="POST">
+                    <div class="accordion" id="designAccordion">
+                        {% for key, page in config.items() %}
+                        <div class="accordion-item border-0 mb-3 shadow-sm rounded overflow-hidden">
+                            <h2 class="accordion-header" id="heading{{ key }}">
+                                <button class="accordion-button collapsed bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ key }}">
+                                    <div class="d-flex align-items-center w-100 me-3">
+                                        <div class="form-check form-switch me-3">
+                                            <input class="form-check-input fs-5" type="checkbox" name="{{ key }}_enabled" {% if page.enabled %}checked{% endif %} onclick="event.stopPropagation()">
+                                        </div>
+                                        <span class="fw-bold">{{ page.label }}</span>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="collapse{{ key }}" class="accordion-collapse collapse" data-bs-parent="#designAccordion">
+                                <div class="accordion-body bg-light">
+                                    {% for element in page.elements %}
+                                    <div class="mb-3">
+                                        {% if element.type == 'checkbox' %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="{{ key }}_{{ element.key }}" id="{{ key }}_{{ element.key }}" {% if element.value %}checked{% endif %}>
+                                            <label class="form-check-label" for="{{ key }}_{{ element.key }}">
+                                                {{ element.label }}
+                                            </label>
+                                        </div>
+                                        {% else %}
+                                        <label class="form-label small text-muted">{{ element.label }}</label>
+                                        <input type="text" class="form-control form-control-sm" name="{{ key }}_{{ element.key }}" value="{{ element.value }}">
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const previewContainer = document.getElementById('preview-content');
+        const form = document.querySelector('form');
+        
+        // Helper to get input values safely
+        const getVal = (name) => {
+            const el = document.querySelector(`[name="${name}"]`);
+            if (!el) return '';
+            if (el.type === 'checkbox') return el.checked;
+            return el.value;
+        };
+
+        // Render Functions for each page type
+        const renderers = {
+            'welcome': () => {
+                const showName = getVal('welcome_restaurant_name');
+                const showTable = getVal('welcome_table_number');
+                const btnText = getVal('welcome_start_label');
+                return `
+                    <div class="d-flex flex-column h-100 p-4 justify-content-center text-center">
+                        <div class="mb-4 text-primary"><i class="bi bi-shop" style="font-size: 4rem;"></i></div>
+                        ${showName ? '<h2 class="fw-bold mb-2">Restaurant Name</h2>' : ''}
+                        ${showTable ? '<p class="text-muted mb-4">Table 12</p>' : ''}
+                        <button class="btn btn-primary btn-lg rounded-pill w-100 shadow-sm">${btnText || 'Start'}</button>
+                    </div>
+                `;
+            },
+            'menu': () => {
+                const showCats = getVal('menu_categories');
+                const showItems = getVal('menu_items');
+                const btnText = getVal('menu_add_cart_label');
+                
+                let html = '<div class="p-3">';
+                if (showCats) {
+                    html += `
+                        <div class="d-flex gap-2 overflow-auto mb-3 pb-2">
+                            <span class="badge bg-primary rounded-pill px-3 py-2">All</span>
+                            <span class="badge bg-light text-dark border rounded-pill px-3 py-2">Starters</span>
+                            <span class="badge bg-light text-dark border rounded-pill px-3 py-2">Mains</span>
+                        </div>
+                    `;
+                }
+                if (showItems) {
+                    html += `
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-2 d-flex gap-3">
+                                <div class="bg-light rounded" style="width: 60px; height: 60px;"></div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-bold">Burger</h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">$12.00</small>
+                                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3">${btnText || 'Add'}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-2 d-flex gap-3">
+                                <div class="bg-light rounded" style="width: 60px; height: 60px;"></div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-bold">Fries</h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">$5.00</small>
+                                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3">${btnText || 'Add'}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                return html;
+            },
+            'cart': () => {
+                const showQty = getVal('cart_show_qty');
+                const allowRemove = getVal('cart_allow_remove');
+                const totalLabel = getVal('cart_total_label');
+                
+                return `
+                    <div class="p-3 h-100 d-flex flex-column">
+                        <h5 class="fw-bold mb-3">Your Order</h5>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+                                <div>
+                                    <h6 class="mb-0">Burger</h6>
+                                    <small class="text-muted">$12.00</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    ${showQty ? '<button class="btn btn-sm btn-light border rounded-circle py-0 px-2">-</button> <span>1</span> <button class="btn btn-sm btn-light border rounded-circle py-0 px-2">+</button>' : '<span>x1</span>'}
+                                    ${allowRemove ? '<i class="bi bi-trash text-danger ms-2"></i>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border-top pt-3">
+                            <div class="d-flex justify-content-between fw-bold mb-3">
+                                <span>${totalLabel || 'Total'}</span>
+                                <span>$12.00</span>
+                            </div>
+                            <button class="btn btn-primary w-100 rounded-pill">Checkout</button>
+                        </div>
+                    </div>
+                `;
+            },
+            'checkout': () => {
+                const confirmTable = getVal('checkout_confirm_table');
+                const allowNotes = getVal('checkout_allow_notes');
+                const btnText = getVal('checkout_place_order_label');
+                
+                return `
+                    <div class="p-3">
+                        <h5 class="fw-bold mb-4">Checkout</h5>
+                        ${confirmTable ? '<div class="mb-3"><label class="form-label small text-muted">Table Number</label><input type="text" class="form-control" value="12" readonly></div>' : ''}
+                        ${allowNotes ? '<div class="mb-3"><label class="form-label small text-muted">Kitchen Notes</label><textarea class="form-control" rows="2" placeholder="Allergies, etc..."></textarea></div>' : ''}
+                        <div class="mb-3"><label class="form-label small text-muted">Payment Method</label><select class="form-select"><option>Credit Card</option></select></div>
+                        <button class="btn btn-success w-100 rounded-pill mt-3">${btnText || 'Place Order'}</button>
+                    </div>
+                `;
+            },
+            'thank_you': () => {
+                const msg = getVal('thank_you_message');
+                return `
+                    <div class="d-flex flex-column h-100 p-4 justify-content-center text-center">
+                        <div class="mb-3 text-success"><i class="bi bi-check-circle-fill" style="font-size: 4rem;"></i></div>
+                        <h3 class="fw-bold">Order Sent!</h3>
+                        <p class="text-muted mt-2">${msg || 'Thank you'}</p>
+                        <button class="btn btn-outline-primary rounded-pill mt-4">Back to Menu</button>
+                    </div>
+                `;
+            },
+            'status': () => {
+                const liveStatus = getVal('status_live_status');
+                const orderNum = getVal('status_order_number');
+                
+                return `
+                    <div class="p-3">
+                        ${orderNum ? '<div class="d-flex justify-content-between mb-4"><span class="fw-bold">Order #1234</span><span class="badge bg-warning text-dark">Preparing</span></div>' : ''}
+                        ${liveStatus ? '<div class="position-relative ps-4 border-start ms-2"><div class="mb-4 position-relative"><span class="position-absolute top-0 start-0 translate-middle bg-success rounded-circle" style="width: 12px; height: 12px; left: -1px;"></span><h6 class="fw-bold mb-0">Order Received</h6><small class="text-muted">12:30 PM</small></div><div class="mb-4 position-relative"><span class="position-absolute top-0 start-0 translate-middle bg-warning rounded-circle" style="width: 12px; height: 12px; left: -1px;"></span><h6 class="fw-bold mb-0">Preparing</h6><small class="text-muted">12:35 PM</small></div></div>' : ''}
+                    </div>
+                `;
+            }
+        };
+
+        const updatePreview = () => {
+            const activeCollapse = document.querySelector('.accordion-collapse.show');
+            if (!activeCollapse) return;
+            const pageKey = activeCollapse.id.replace('collapse', '');
+            if (renderers[pageKey]) previewContainer.innerHTML = rendererspageKey;
+        };
+
+        document.querySelectorAll('.accordion-collapse').forEach(el => el.addEventListener('shown.bs.collapse', updatePreview));
+        form.addEventListener('input', updatePreview);
+        
+        // Open first item by default
+        const firstItem = document.querySelector('.accordion-collapse');
+        if(firstItem) new bootstrap.Collapse(firstItem, { show: true });
+    });
+</script>
+{% endblock %}

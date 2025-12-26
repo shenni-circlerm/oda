@@ -12,11 +12,10 @@ MENU_STRUCTURE = {
         {'label': 'Orders History', 'endpoint': 'admin.history', 'icon': 'bi-clock-history'},
         {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
     ],
-    'storefront': [
-        {'label': 'Active Tables', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-layout-text-window-reverse'},
-        {'label': 'Tables & QR', 'endpoint': 'admin.qr_codes', 'icon': 'bi-qr-code'},
-        {'label': 'Walk-in Orders', 'endpoint': 'admin.walkin', 'icon': 'bi-person-walking'},
-        {'label': 'Print Receipt', 'endpoint': 'admin.print_receipt', 'icon': 'bi-printer'},
+    'store_front': [
+        {'label': 'Tables', 'endpoint': 'admin.storefront_tables', 'icon': 'bi-grid-3x3'},
+        {'label': 'Active Orders', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-receipt'},
+        {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
     ],
     'menu': [
         {'label': 'Menu Items', 'endpoint': 'admin.manage_menu', 'icon': 'bi-journal-text'},

@@ -16,7 +16,7 @@
     {% set view_descriptions = {
         'kitchen': 'Manage active orders and preparation',
         'office': 'Administrative dashboard and reports',
-        'storefront': 'Front of house and table management',
+        'store_front': 'Front of house and table management',
         'menu': 'Configure menu items and availability',
         'design_store': 'Design your store and menu'
     } %}
@@ -100,7 +100,7 @@
       {% if messages %}
         {% for message in messages %}
           <div class="alert alert-info alert-dismissible fade show" role="alert">
-            {{ message }}
+            {{ message|safe }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
         {% endfor %}

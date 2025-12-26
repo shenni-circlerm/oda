@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Blueprint, abort, request, redirect, url_for, render_template, flash, current_app, send_file
+from flask import Blueprint, abort, request, redirect, url_for, render_template, flash, current_app, send_file, session
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
@@ -67,14 +67,14 @@ def staff_dashboard():
     active_orders = Order.query.filter_by(
         restaurant_id=current_user.restaurant_id
     ).filter(Order.status.in_(['pending', 'preparing'])).all()
-    return render_template('dashboard.html', orders=active_orders)
+    return render_template('kitchen_dashboard.html', orders=active_orders)
 
 @admin_bp.route('/admin/users')
 @login_required
 @admin_required
 def manage_users():
     staff = User.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    return render_template('users.html', staff=staff)
+    return render_template('office_staff.html', staff=staff)
 
 @admin_bp.route('/admin/invite-staff', methods=['POST'])
 @login_required
@@ -103,7 +103,7 @@ def invite_staff():
 def manage_menu():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    return render_template('menu.html', items=items, restaurant=restaurant, table={'number': 'Admin'})
+    return render_template('menu_items.html', items=items, restaurant=restaurant, table={'number': 'Admin'})
 
 @admin_bp.route('/admin/menu/add', methods=['POST'])
 @login_required
@@ -193,7 +193,16 @@ def serve_restaurant_image(restaurant_id, image_type):
 @admin_bp.route('/admin/tables')
 @login_required
 def tables():
-    return render_template('base.html', content="Tables View - Coming Soon")
+    tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
+    
+    active_orders = Order.query.filter_by(restaurant_id=current_user.restaurant_id).filter(Order.status.in_(['pending', 'preparing', 'ready'])).all()
+    
+    table_status = {}
+    for order in active_orders:
+        table_status[order.table_id] = order.status
+        
+    return render_template('kitchen_tables.html', tables=tables, table_status=table_status)
 
 @admin_bp.route('/admin/completed')
 @login_required
@@ -233,7 +242,7 @@ def categories():
         return redirect(url_for('admin.categories'))
         
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    return render_template('categories.html', categories=categories)
+    return render_template('menu_categories.html', categories=categories)
 
 @admin_bp.route('/admin/categories/edit/<int:category_id>', methods=['POST'])
 @login_required
@@ -287,7 +296,7 @@ def branding():
         flash('Branding updated successfully.')
         return redirect(url_for('admin.branding'))
         
-    return render_template('branding.html', restaurant=restaurant)
+    return render_template('design_branding.html', restaurant=restaurant)
 
 @admin_bp.route('/admin/menu-design', methods=['GET', 'POST'])
 @login_required
@@ -372,7 +381,7 @@ def menu_design():
         flash("Store design updated.")
         return redirect(url_for('admin.menu_design'))
 
-    return render_template('menu_design.html', config=config)
+    return render_template('design_pages.html', config=config)
 
 @admin_bp.route('/admin/qr-design', methods=['GET', 'POST'])
 @login_required
@@ -396,37 +405,249 @@ def qr_design():
         flash("QR Design updated.")
         return redirect(url_for('admin.qr_design'))
         
-    return render_template('qr_design.html', config=config)
+    return render_template('design_qr.html', config=config)
 
-@admin_bp.route('/admin/qr-codes', methods=['GET', 'POST'])
+@admin_bp.route('/admin/storefront/tables', methods=['GET', 'POST'])
 @login_required
-def qr_codes():
+def storefront_tables():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     
     if request.method == 'POST':
-        number = request.form.get('number')
-        if number:
-            existing = Table.query.filter_by(restaurant_id=current_user.restaurant_id, number=number).first()
-            if existing:
-                flash('Table number already exists.')
-            else:
-                new_table = Table(number=number, restaurant_id=current_user.restaurant_id)
-                db.session.add(new_table)
+        action = request.form.get('action')
+        
+        if action == 'create':
+            number = request.form.get('number')
+            floor = request.form.get('floor')
+            seating = request.form.get('seating_capacity')
+            notes = request.form.get('notes')
+            
+            if number:
+                existing = Table.query.filter_by(restaurant_id=current_user.restaurant_id, number=number).first()
+                if existing:
+                    flash('Table number already exists.')
+                else:
+                    new_table = Table(
+                        number=number, 
+                        restaurant_id=current_user.restaurant_id,
+                        floor=floor,
+                        seating_capacity=int(seating) if seating else None,
+                        notes=notes
+                    )
+                    
+                    # Handle Reservation
+                    res_name = request.form.get('res_name')
+                    if res_name:
+                        new_table.reservation_info = {
+                            'name': res_name,
+                            'date': request.form.get('res_date'),
+                            'start': request.form.get('res_start'),
+                            'end': request.form.get('res_end')
+                        }
+                        
+                    db.session.add(new_table)
+                    db.session.commit()
+                    flash('Table added.')
+            return redirect(url_for('admin.storefront_tables'))
+            
+        elif action == 'auto_create':
+            tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+            existing_numbers = [int(t.number) for t in tables if t.number.isdigit()]
+            next_num = 1
+            if existing_numbers:
+                next_num = max(existing_numbers) + 1
+            
+            # Ensure uniqueness
+            while Table.query.filter_by(restaurant_id=current_user.restaurant_id, number=str(next_num)).first():
+                next_num += 1
+                
+            new_table = Table(number=str(next_num), restaurant_id=current_user.restaurant_id)
+            db.session.add(new_table)
+            db.session.commit()
+            flash(f'Table {next_num} created.')
+            return redirect(url_for('admin.storefront_tables', table_id=new_table.id))
+            
+        elif action == 'update':
+            table_id = request.form.get('table_id')
+            new_number = request.form.get('number')
+            
+            table = Table.query.filter_by(id=table_id, restaurant_id=current_user.restaurant_id).first()
+            if table and new_number:
+                table.number = new_number
+                table.floor = request.form.get('floor')
+                seating = request.form.get('seating_capacity')
+                table.seating_capacity = int(seating) if seating else None
+                table.status = request.form.get('status')
+                table.notes = request.form.get('notes')
+                
+                # Handle Reservation Update
+                res_name = request.form.get('res_name')
+                if res_name:
+                    table.reservation_info = {
+                        'name': res_name,
+                        'date': request.form.get('res_date'),
+                        'start': request.form.get('res_start'),
+                        'end': request.form.get('res_end')
+                    }
+                else:
+                    table.reservation_info = {} # Clear reservation if name is empty
+
                 db.session.commit()
-                flash('Table added.')
-        return redirect(url_for('admin.qr_codes'))
+                flash('Table updated.')
+            return redirect(url_for('admin.storefront_tables', table_id=table_id))
 
     tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     # Sort numerically if possible, otherwise alphabetically
     tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
-    
-    return render_template('qr_codes.html', tables=tables, restaurant=restaurant)
 
-@admin_bp.route('/admin/qr-codes/delete/<int:table_id>', methods=['POST'])
+    # Fetch active orders for status display
+    active_orders = Order.query.filter_by(restaurant_id=current_user.restaurant_id).filter(
+        Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid'])
+    ).all()
+    
+    table_data = {}
+    for table in tables:
+        # Find active order for this table
+        order = next((o for o in active_orders if o.table_id == table.id), None)
+        
+        state = {
+            'items_count': 0,
+            'total': 0.0,
+            'payment_status': '',
+            'order_id': None
+        }
+        
+        # Priority 1: Manual override for maintenance
+        if table.status == 'maintenance':
+            state['status'] = 'Not Available'
+            state['color'] = 'dark'
+        # Priority 2: Active Order exists
+        elif order:
+            state['order_id'] = order.id
+            state['items_count'] = len(order.items)
+            state['total'] = sum(item.menu_item.price for item in order.items)
+            
+            if order.status == 'paid':
+                state['status'] = 'Paid'
+                state['color'] = 'primary' # Blue
+                state['payment_status'] = 'PAID'
+            elif order.status == 'completed':
+                state['status'] = 'Ready to clear'
+                state['color'] = 'light' # White/Grey
+                state['payment_status'] = 'PAID'
+            else:
+                state['status'] = 'Ordered'
+                state['color'] = 'warning' # Yellow
+                state['payment_status'] = 'UNPAID'
+        # Priority 3: Manual override for occupied
+        elif table.status == 'occupied':
+            state['status'] = 'Occupied'
+            state['color'] = 'secondary'
+        # Priority 4: Reservation exists
+        elif table.reservation_info and table.reservation_info.get('name'):
+            state['status'] = 'Booked'
+            state['color'] = 'info'
+        # Priority 5: Default is available
+        else:
+            state['status'] = 'Available'
+            state['color'] = 'success' # Green
+        
+        table_data[table.id] = state
+    
+    selected_table = None
+    selected_id = request.args.get('table_id')
+    if selected_id:
+        selected_table = Table.query.filter_by(id=selected_id, restaurant_id=current_user.restaurant_id).first()
+    
+    # Default to first table if none selected and tables exist
+    if not selected_table and tables:
+        selected_table = tables[0]
+    
+    return render_template('storefront_tables.html', tables=tables, restaurant=restaurant, selected_table=selected_table, table_data=table_data)
+
+@admin_bp.route('/admin/storefront/tables/delete/<int:table_id>', methods=['POST'])
 @login_required
 def delete_table(table_id):
     table = Table.query.filter_by(id=table_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    
+    # Determine next table to highlight
+    all_tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    all_tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
+    
+    next_id = None
+    try:
+        current_idx = next(i for i, t in enumerate(all_tables) if t.id == table_id)
+        if current_idx + 1 < len(all_tables):
+            next_id = all_tables[current_idx + 1].id
+        elif len(all_tables) > 1:
+            next_id = all_tables[0].id
+    except StopIteration:
+        pass
+
+    # Store table data for Undo
+    session['last_deleted_table'] = {
+        'number': table.number,
+        'restaurant_id': table.restaurant_id,
+        'floor': table.floor,
+        'seating_capacity': table.seating_capacity,
+        'notes': table.notes,
+        'reservation_info': table.reservation_info,
+        'qr_identifier': table.qr_identifier
+    }
+
     db.session.delete(table)
     db.session.commit()
-    flash('Table deleted.')
-    return redirect(url_for('admin.qr_codes'))
+    
+    undo_url = url_for('admin.undo_delete_table')
+    flash(f"Table {table.number} deleted. <a href='{undo_url}' class='fw-bold text-decoration-underline'>Undo</a>")
+    
+    if next_id:
+        return redirect(url_for('admin.storefront_tables', table_id=next_id))
+    return redirect(url_for('admin.storefront_tables'))
+
+@admin_bp.route('/admin/storefront/tables/undo', methods=['GET'])
+@login_required
+def undo_delete_table():
+    data = session.get('last_deleted_table')
+    if data:
+        # Check if table number is still available (simple check)
+        existing = Table.query.filter_by(restaurant_id=current_user.restaurant_id, number=data['number']).first()
+        if existing:
+            flash(f"Cannot undo: Table {data['number']} already exists.")
+            return redirect(url_for('admin.storefront_tables'))
+
+        # Restore table
+        table = Table(
+            number=data['number'],
+            restaurant_id=data['restaurant_id'],
+            floor=data['floor'],
+            seating_capacity=data['seating_capacity'],
+            notes=data['notes'],
+            reservation_info=data['reservation_info'],
+            qr_identifier=data['qr_identifier']
+        )
+        db.session.add(table)
+        db.session.commit()
+        
+        # Clear session data
+        session.pop('last_deleted_table', None)
+        
+        flash(f"Table {table.number} restored.")
+        return redirect(url_for('admin.storefront_tables', table_id=table.id))
+    
+    flash("Nothing to undo.")
+    return redirect(url_for('admin.storefront_tables'))
+
+@admin_bp.route('/admin/storefront/tables/<int:table_id>/status', methods=['POST'])
+@login_required
+def set_table_status(table_id):
+    table = Table.query.filter_by(id=table_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    new_status = request.form.get('status')
+    
+    valid_statuses = ['available', 'occupied', 'maintenance']
+    if new_status in valid_statuses:
+        table.status = new_status
+        db.session.commit()
+    else:
+        flash("Invalid status.", "danger")
+        
+    return redirect(url_for('admin.storefront_tables', table_id=table.id))

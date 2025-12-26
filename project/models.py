@@ -67,6 +67,15 @@ class Table(db.Model):
     qr_identifier = db.Column(db.String(100), default=lambda: str(uuid.uuid4()))
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Configuration
+    status = db.Column(db.String(20), default='available') # available, occupied, maintenance
+    floor = db.Column(db.String(50))
+    seating_capacity = db.Column(db.Integer)
+    notes = db.Column(db.Text)
+    
+    # Reservation
+    reservation_info = db.Column(db.JSON, default={}) # Stores: name, date, start, end
 
 class ModifierGroup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
