@@ -54,13 +54,18 @@ class Menu(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     categories = db.relationship('Category', backref='menu')
 
+menu_item_categories = db.Table('menu_item_categories',
+    db.Column('menu_item_id', db.Integer, db.ForeignKey('menu_item.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('category.id'), primary_key=True)
+)
+
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     menu_id = db.Column(db.Integer, db.ForeignKey('menu.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    items = db.relationship('MenuItem', backref='category')
+    # items relationship is defined via backref in MenuItem
 
 class MenuItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -73,7 +78,7 @@ class MenuItem(db.Model):
     image_mimetype = db.Column(db.String(50))
     is_available = db.Column(db.Boolean, default=True)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
-    category_id = db.Column(db.Integer, db.ForeignKey('category.id'))
+    categories = db.relationship('Category', secondary=menu_item_categories, backref=db.backref('items', lazy='subquery'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Table(db.Model):

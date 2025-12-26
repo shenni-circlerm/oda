@@ -71,12 +71,17 @@ def manage_menu():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     
     selected_item = None
     item_id = request.args.get('item_id')
     if item_id:
         selected_item = next((i for i in items if str(i.id) == str(item_id)), None)
-    return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item, categories=categories)
+    
+    if not selected_item and items:
+        selected_item = items[0]
+
+    return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item, categories=categories, menus=menus)
 
 @admin_bp.route('/admin/menu/add', methods=['POST'])
 @login_required
@@ -107,6 +112,12 @@ def add_menu_item():
         restaurant_id=current_user.restaurant_id
     )
     
+    category_ids = request.form.getlist('categories')
+    for cat_id in category_ids:
+        category = db.session.get(Category, cat_id)
+        if category:
+            new_item.categories.append(category)
+    
     file = request.files.get('image')
     if file and file.filename != '':
         new_item.image_data = file.read()
@@ -130,8 +141,12 @@ def edit_menu_item(item_id):
         item.description = request.form.get('description')
         item.is_available = 'is_available' in request.form
         
-        category_id = request.form.get('category_id')
-        item.category_id = category_id if category_id else None
+        category_ids = request.form.getlist('categories')
+        item.categories = []
+        for cat_id in category_ids:
+            category = db.session.get(Category, cat_id)
+            if category:
+                item.categories.append(category)
         
         file = request.files.get('image')
         if file and file.filename != '':
@@ -278,6 +293,9 @@ def menus():
     if menu_id:
         selected_menu = next((m for m in menus if str(m.id) == str(menu_id)), None)
         
+    if not selected_menu and menus:
+        selected_menu = menus[0]
+        
     return render_template('menus.html', menus=menus, selected_menu=selected_menu)
 
 @admin_bp.route('/admin/menus/delete/<int:menu_id>', methods=['POST'])
@@ -300,6 +318,11 @@ def categories():
             db.session.add(new_category)
             db.session.commit()
             flash('Category added successfully.')
+        
+        return_to = request.form.get('return_to')
+        if return_to:
+            return redirect(return_to)
+            
         return redirect(url_for('admin.categories'))
         
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
@@ -335,7 +358,7 @@ def delete_category(category_id):
 @login_required
 def availability():
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    uncategorized_items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id, category_id=None).all()
+    uncategorized_items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).filter(~MenuItem.categories.any()).all()
     return render_template('menu_availability.html', categories=categories, uncategorized_items=uncategorized_items)
 
 @admin_bp.route('/admin/availability/toggle/<int:item_id>', methods=['POST'])
