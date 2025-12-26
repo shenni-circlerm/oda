@@ -45,9 +45,20 @@
                         <h4 class="fw-bold mb-0">Order #{{ selected_order.id }}</h4>
                         <span class="text-muted">Table {{ selected_order.table.number }}</span>
                     </div>
-                    <button class="btn btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addItemModal">
-                        <i class="bi bi-plus-lg me-2"></i>Add Item
-                    </button>
+                    <div class="d-flex gap-2">
+                        <div class="dropdown" style="z-index: 1050;">
+                            <button class="btn btn-outline-secondary rounded-pill dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                Actions
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#changeTableModal">Change Table</button></li>
+                                <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#mergeOrderModal">Merge / Combine Bill</button></li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                            <i class="bi bi-plus-lg me-2"></i>Add Item
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-0 overflow-auto">
                     <table class="table table-hover mb-0 align-middle">
@@ -203,6 +214,67 @@
                     {% endfor %}
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Table Modal -->
+<div class="modal fade" id="changeTableModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Change Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                <input type="hidden" name="action" value="move_table">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                <div class="modal-body">
+                    <p class="text-muted">Move Order #{{ selected_order.id }} from Table {{ selected_order.table.number }} to:</p>
+                    <select name="new_table_id" class="form-select" required>
+                        <option value="" disabled selected>Select empty table...</option>
+                        {% for table in available_tables %}
+                        <option value="{{ table.id }}">Table {{ table.number }} ({{ table.floor or 'Main' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary">Move Order</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Merge Order Modal -->
+<div class="modal fade" id="mergeOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Merge / Combine Bill</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                <input type="hidden" name="action" value="merge_orders">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                <div class="modal-body">
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-info-circle me-1"></i> This will move all items from <strong>Table {{ selected_order.table.number }}</strong> to the selected table and close this order.
+                    </div>
+                    <label class="form-label">Merge into (Payer):</label>
+                    <select name="target_order_id" class="form-select" required>
+                        <option value="" disabled selected>Select target table...</option>
+                        {% for order in orders %}
+                            {% if order.id != selected_order.id %}
+                            <option value="{{ order.id }}">Table {{ order.table.number }} (Order #{{ order.id }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary">Merge Orders</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

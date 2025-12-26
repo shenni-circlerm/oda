@@ -679,6 +679,45 @@ def storefront_orders():
                 flash('New order created. You can now add items.')
                 return redirect(url_for('admin.storefront_orders', order_id=new_order.id))
         
+        elif action == 'move_table':
+            new_table_id = request.form.get('new_table_id')
+            if order_id and new_table_id:
+                # Verify target table is empty (double check)
+                target_has_order = Order.query.filter_by(
+                    table_id=new_table_id, 
+                    restaurant_id=restaurant.id
+                ).filter(Order.status.in_(['pending', 'preparing', 'ready', 'served'])).first()
+                
+                if target_has_order:
+                    flash('Target table is occupied. Please use "Merge" if you wish to combine bills.', 'warning')
+                else:
+                    order = Order.query.get(order_id)
+                    order.table_id = new_table_id
+                    db.session.commit()
+                    flash(f'Order moved to Table {order.table.number}.')
+
+        elif action == 'merge_orders':
+            target_order_id = request.form.get('target_order_id')
+            if order_id and target_order_id:
+                source_order = Order.query.get(order_id)
+                target_order = Order.query.get(target_order_id)
+                
+                if source_order and target_order:
+                    # Move items from source to target
+                    for item in source_order.items:
+                        # Check if same item exists in target to merge quantities
+                        existing_item = OrderItem.query.filter_by(order_id=target_order.id, menu_item_id=item.menu_item_id).first()
+                        if existing_item:
+                            existing_item.quantity += item.quantity
+                            db.session.delete(item)
+                        else:
+                            item.order_id = target_order.id
+                    
+                    source_order.status = 'cancelled' # Effectively closes the source order
+                    db.session.commit()
+                    flash(f'Order #{source_order.id} merged into Order #{target_order.id}.')
+                    return redirect(url_for('admin.storefront_orders', order_id=target_order.id))
+        
         return redirect(url_for('admin.storefront_orders', order_id=order_id))
 
     orders = Order.query.filter_by(restaurant_id=restaurant.id).filter(
