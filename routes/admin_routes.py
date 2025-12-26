@@ -69,11 +69,29 @@ def invite_staff():
 def manage_menu():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    return render_template('menu_items.html', items=items, restaurant=restaurant, table={'number': 'Admin'})
+    
+    selected_item = None
+    item_id = request.args.get('item_id')
+    if item_id:
+        selected_item = next((i for i in items if str(i.id) == str(item_id)), None)
+    return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item)
 
 @admin_bp.route('/admin/menu/add', methods=['POST'])
 @login_required
 def add_menu_item():
+    if request.form.get('quick_add'):
+        count = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).count()
+        new_item = MenuItem(
+            name="New Item",
+            sku=f"ITEM-{count + 1:03d}",
+            price=0.0,
+            restaurant_id=current_user.restaurant_id,
+            is_available=False
+        )
+        db.session.add(new_item)
+        db.session.commit()
+        return redirect(url_for('admin.manage_menu', item_id=new_item.id))
+
     name = request.form.get('name')
     sku = request.form.get('sku')
     price = request.form.get('price')
@@ -117,9 +135,19 @@ def edit_menu_item(item_id):
 
         db.session.commit()
         flash("Menu item updated!")
-        return redirect(url_for('admin.manage_menu'))
+        return redirect(url_for('admin.manage_menu', item_id=item.id))
 
-    return render_template('edit_item.html', item=item)
+    return redirect(url_for('admin.manage_menu', item_id=item_id))
+
+@admin_bp.route('/admin/menu/delete/<int:item_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_menu_item(item_id):
+    item = MenuItem.query.filter_by(id=item_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    db.session.delete(item)
+    db.session.commit()
+    flash("Menu item deleted.")
+    return redirect(url_for('admin.manage_menu'))
 
 @admin_bp.route('/admin/order/<int:order_id>/update', methods=['POST'])
 @login_required

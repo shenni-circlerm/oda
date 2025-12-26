@@ -4,80 +4,193 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold mb-0">Menu Items</h2>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
-            <i class="bi bi-plus-lg me-2"></i>Add New Item
-        </button>
-    </div>
-
-    <div class="row g-4">
-        {% for item in items %}
-        <div class="col-md-6 col-lg-4 col-xl-3">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="position-relative">
-                    <img src="{{ url_for('admin.serve_menu_image', item_id=item.id) }}" class="card-img-top" alt="{{ item.name }}" style="height: 220px; object-fit: cover;">
-                    <span class="position-absolute top-0 end-0 m-2 badge {{ 'bg-success' if item.is_available else 'bg-danger' }}">
-                        {{ 'Available' if item.is_available else 'Unavailable' }}
-                    </span>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="card-title fw-bold mb-0">{{ item.name }}</h5>
-                        <span class="text-primary fw-bold">${{ "%.2f"|format(item.price) }}</span>
+    <div class="row h-100">
+        <!-- Left Column: Item List -->
+        <div class="col-md-4 col-lg-3 border-end bg-white p-0" style="min-height: calc(100vh - 100px);">
+            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">Menu Items</h5>
+                <form action="{{ url_for('admin.add_menu_item') }}" method="POST" class="m-0">
+                    <input type="hidden" name="quick_add" value="true">
+                    <button type="submit" class="btn btn-sm btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> New</button>
+                </form>
+            </div>
+            <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
+                {% for item in items %}
+                <a href="{{ url_for('admin.manage_menu', item_id=item.id) }}" 
+                   class="list-group-item list-group-item-action py-3 border-0 {% if selected_item and selected_item.id == item.id %}bg-secondary bg-opacity-10{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="fw-bold text-truncate">{{ item.name }}</span>
+                        <span class="badge rounded-pill {{ 'bg-success' if item.is_available else 'bg-secondary' }}">
+                            {{ 'Active' if item.is_available else 'Inactive' }}
+                        </span>
                     </div>
-                    <p class="card-text text-muted small text-truncate">{{ item.description }}</p>
+                    <div class="d-flex justify-content-between align-items-end">
+                        <small class="text-muted text-truncate" style="max-width: 150px;">{{ item.sku if item.sku else 'No SKU' }}</small>
+                        <span class="fw-bold text-primary">${{ "%.2f"|format(item.price) }}</span>
+                    </div>
+                </a>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <p class="mb-0">No menu items yet.</p>
                 </div>
-                <div class="card-footer bg-white border-0 pt-0 pb-3">
-                    <div class="d-grid">
-                        <a href="{{ url_for('admin.edit_menu_item', item_id=item.id) }}" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-pencil me-2"></i>Edit Item
-                        </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Right Column: Edit / Preview -->
+        <div class="col-md-8 col-lg-9 p-4 bg-light">
+            {% if selected_item %}
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h4 class="fw-bold mb-0">Edit Item</h4>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteItemModal">
+                        <i class="bi bi-trash me-1"></i> Delete
+                    </button>
+                </div>
+                <div class="card-body p-4 overflow-auto">
+                    <form action="{{ url_for('admin.edit_menu_item', item_id=selected_item.id) }}" method="POST" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-4 mb-4">
+                                <div class="text-center">
+                                    <div id="drop-zone" class="position-relative mb-3" style="cursor: pointer;">
+                                        <img id="item-image-preview" src="{{ url_for('admin.serve_menu_image', item_id=selected_item.id) if selected_item.image_data else '' }}" class="rounded-3 shadow-sm bg-light {{ 'd-none' if not selected_item.image_data else '' }}" style="width: 100%; height: 200px; object-fit: cover;">
+                                        <div id="image-placeholder-text" class="rounded-3 border border-2 d-flex align-items-center justify-content-center bg-light text-muted {{ 'd-none' if selected_item.image_data else '' }}" style="width: 100%; height: 200px; border-style: dashed !important;">
+                                            <div class="text-center">
+                                                <i class="bi bi-cloud-upload fs-1"></i>
+                                                <div class="mt-2 small fw-bold">Upload or Drag Image</div>
+                                            </div>
+                                        </div>
+                                        <div id="drop-overlay" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-primary bg-opacity-75 text-white rounded-3" style="opacity: 0; pointer-events: none; transition: opacity 0.2s;">
+                                            <div class="text-center">
+                                                <i class="bi bi-cloud-arrow-up-fill fs-1"></i>
+                                                <div class="fw-bold">Drop Image Here</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <label class="btn btn-outline-primary btn-sm rounded-pill">
+                                        <i class="bi bi-camera me-2"></i>Change Image
+                                        <input type="file" name="image" id="image-input" class="d-none" accept="image/*" onchange="previewImage(this)">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <label class="form-label">Name</label>
+                                        <input type="text" name="name" value="{{ selected_item.name }}" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">SKU</label>
+                                        <input type="text" name="sku" value="{{ selected_item.sku or '' }}" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Price</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" step="0.01" name="price" value="{{ selected_item.price }}" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Description</label>
+                                        <textarea name="description" class="form-control" rows="3">{{ selected_item.description }}</textarea>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" name="is_available" class="form-check-input" id="availCheck" {% if selected_item.is_available %}checked{% endif %}>
+                                            <label class="form-check-label" for="availCheck">Available for ordering</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 mt-3">
+                                        <button type="submit" class="btn btn-primary rounded-pill px-4">Save Changes</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Delete Confirmation Modal -->
+            <div class="modal fade" id="deleteItemModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header border-0">
+                            <h5 class="modal-title fw-bold">Delete Item</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted">Are you sure you want to delete <strong>{{ selected_item.name }}</strong>? This action cannot be undone.</p>
+                            <div class="d-flex justify-content-end gap-2 mt-4">
+                                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                                <form action="{{ url_for('admin.delete_menu_item', item_id=selected_item.id) }}" method="POST">
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+            {% else %}
+            <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                <i class="bi bi-egg-fried fs-1 mb-3 opacity-25"></i>
+                <p>Select an item to preview or edit.</p>
+            </div>
+            {% endif %}
         </div>
-        {% endfor %}
     </div>
 </div>
 
-<!-- Add Item Modal -->
-<div class="modal fade" id="addItemModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold">Add New Menu Item</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{{ url_for('admin.add_menu_item') }}" method="POST" enctype="multipart/form-data">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Item Name</label>
-                        <input type="text" name="name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">SKU / Item No.</label>
-                        <input type="text" name="sku" class="form-control" placeholder="Optional">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Price ($)</label>
-                        <input type="number" step="0.01" name="price" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <textarea name="description" class="form-control" rows="3"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Item Image</label>
-                        <input type="file" name="image" class="form-control" accept="image/*">
-                    </div>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Item</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = document.getElementById('item-image-preview');
+            var placeholder = document.getElementById('image-placeholder-text');
+            img.src = e.target.result;
+            img.classList.remove('d-none');
+            if (placeholder) placeholder.classList.add('d-none');
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('drop-zone');
+    const dropOverlay = document.getElementById('drop-overlay');
+    const fileInput = document.getElementById('image-input');
+
+    if (dropZone && fileInput) {
+        // Click to upload
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // Drag and Drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropOverlay.style.opacity = '1', false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropOverlay.style.opacity = '0', false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt.files && dt.files.length > 0) {
+                fileInput.files = dt.files;
+                previewImage(fileInput);
+            }
+        }, false);
+    }
+});
+</script>
 {% endblock %}
