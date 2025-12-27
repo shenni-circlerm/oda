@@ -8,7 +8,7 @@ from io import BytesIO
 from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
 
-from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu
+from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu, ModifierGroup, ModifierOption
 from extensions import db, socketio
 
 admin_bp = Blueprint('admin', __name__)
@@ -94,7 +94,7 @@ def add_menu_item():
             sku=f"ITEM-{count + 1:03d}",
             price=0.0,
             restaurant_id=current_user.restaurant_id,
-            is_available=False
+            is_available=True
         )
         
         if category_id:
@@ -109,12 +109,14 @@ def add_menu_item():
     name = request.form.get('name')
     sku = request.form.get('sku')
     price = request.form.get('price')
+    compare_at_price = request.form.get('compare_at_price')
     description = request.form.get('description')
     
     new_item = MenuItem(
         name=name,
         sku=sku,
         price=float(price),
+        compare_at_price=float(compare_at_price) if compare_at_price else None,
         description=description,
         restaurant_id=current_user.restaurant_id
     )
@@ -145,6 +147,8 @@ def edit_menu_item(item_id):
         item.name = request.form.get('name')
         item.sku = request.form.get('sku')
         item.price = float(request.form.get('price'))
+        compare_at_price = request.form.get('compare_at_price')
+        item.compare_at_price = float(compare_at_price) if compare_at_price else None
         item.description = request.form.get('description')
         item.is_available = 'is_available' in request.form
         
@@ -174,6 +178,74 @@ def delete_menu_item(item_id):
     db.session.delete(item)
     db.session.commit()
     flash("Menu item deleted.")
+    return redirect(url_for('admin.manage_menu'))
+
+@admin_bp.route('/admin/menu/modifier/group/add', methods=['POST'])
+@login_required
+def add_modifier_group():
+    item_id = request.form.get('item_id')
+    name = request.form.get('name')
+    selection_type = request.form.get('selection_type') # single, multiple
+    is_required = request.form.get('is_required') == 'on'
+    min_selection = request.form.get('min_selection')
+    max_selection = request.form.get('max_selection')
+    
+    if item_id and name:
+        group = ModifierGroup(
+            name=name, 
+            selection_type=selection_type, 
+            is_required=is_required, 
+            menu_item_id=item_id,
+            min_selection=int(min_selection) if min_selection else 0,
+            max_selection=int(max_selection) if max_selection else None
+        )
+        db.session.add(group)
+        db.session.commit()
+        flash("Modifier group added.")
+        
+    return redirect(url_for('admin.manage_menu', item_id=item_id))
+
+@admin_bp.route('/admin/menu/modifier/group/delete/<int:group_id>', methods=['POST'])
+@login_required
+def delete_modifier_group(group_id):
+    group = db.session.get(ModifierGroup, group_id)
+    item_id = group.menu_item_id
+    if group:
+        db.session.delete(group)
+        db.session.commit()
+        flash("Modifier group deleted.")
+    return redirect(url_for('admin.manage_menu', item_id=item_id))
+
+@admin_bp.route('/admin/menu/modifier/option/add', methods=['POST'])
+@login_required
+def add_modifier_option():
+    group_id = request.form.get('group_id')
+    name = request.form.get('name')
+    price = request.form.get('price', 0.0)
+    
+    if group_id and name:
+        group = db.session.get(ModifierGroup, group_id)
+        option = ModifierOption(
+            name=name,
+            price_override=float(price) if price else 0.0,
+            group_id=group_id
+        )
+        db.session.add(option)
+        db.session.commit()
+        flash("Option added.")
+        return redirect(url_for('admin.manage_menu', item_id=group.menu_item_id))
+    return redirect(url_for('admin.manage_menu'))
+
+@admin_bp.route('/admin/menu/modifier/option/delete/<int:option_id>', methods=['POST'])
+@login_required
+def delete_modifier_option(option_id):
+    option = db.session.get(ModifierOption, option_id)
+    if option:
+        group = option.group
+        db.session.delete(option)
+        db.session.commit()
+        flash("Option deleted.")
+        return redirect(url_for('admin.manage_menu', item_id=group.menu_item_id))
     return redirect(url_for('admin.manage_menu'))
 
 @admin_bp.route('/admin/order/<int:order_id>/update', methods=['POST'])

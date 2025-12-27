@@ -45,10 +45,22 @@
             {% if selected_item %}
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-                    <h4 class="fw-bold mb-0">Edit Item</h4>
-                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteItemModal">
-                        <i class="bi bi-trash me-1"></i> Delete
-                    </button>
+                    <h4 class="fw-bold mb-0">{{ selected_item.name }}</h4>
+                    <div class="dropdown">
+                        <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots-vertical fs-5"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                            <li>
+                                <button class="dropdown-item" onclick="toggleItemStatus({{ selected_item.id }})">
+                                    <i class="bi bi-toggle-{{ 'on text-success' if selected_item.is_available else 'off text-muted' }} me-2"></i>
+                                    {{ 'Mark Unavailable' if selected_item.is_available else 'Mark Available' }}
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#deleteItemModal"><i class="bi bi-trash me-2"></i>Delete</button></li>
+                        </ul>
+                    </div>
                 </div>
                 <div class="card-body p-4 overflow-auto">
                     <form action="{{ url_for('admin.edit_menu_item', item_id=selected_item.id) }}" method="POST" enctype="multipart/form-data">
@@ -70,10 +82,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <label class="btn btn-outline-primary btn-sm rounded-pill">
-                                        <i class="bi bi-camera me-2"></i>Change Image
-                                        <input type="file" name="image" id="image-input" class="d-none" accept="image/*" onchange="previewImage(this)">
-                                    </label>
+                                    <input type="file" name="image" id="image-input" class="d-none" accept="image/*" onchange="previewImage(this)">
                                 </div>
                             </div>
                             <div class="col-md-8">
@@ -86,11 +95,18 @@
                                         <label class="form-label">SKU</label>
                                         <input type="text" name="sku" value="{{ selected_item.sku or '' }}" class="form-control">
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label">Price</label>
                                         <div class="input-group">
                                             <span class="input-group-text">$</span>
                                             <input type="number" step="0.01" name="price" value="{{ selected_item.price }}" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Original Price (Slashed)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text text-decoration-line-through">$</span>
+                                            <input type="number" step="0.01" name="compare_at_price" value="{{ selected_item.compare_at_price or '' }}" class="form-control" placeholder="Optional">
                                         </div>
                                     </div>
                                     <div class="col-12">
@@ -112,12 +128,7 @@
                                         <label class="form-label">Description</label>
                                         <textarea name="description" class="form-control" rows="3">{{ selected_item.description }}</textarea>
                                     </div>
-                                    <div class="col-12">
-                                        <div class="form-check form-switch">
-                                            <input type="checkbox" name="is_available" class="form-check-input" id="availCheck" {% if selected_item.is_available %}checked{% endif %}>
-                                            <label class="form-check-label" for="availCheck">Available for ordering</label>
-                                        </div>
-                                    </div>
+                                    <input type="checkbox" name="is_available" {% if selected_item.is_available %}checked{% endif %} hidden>
                                     <div class="col-12 mt-3">
                                         <button type="submit" class="btn btn-primary rounded-pill px-4">Save Changes</button>
                                     </div>
@@ -125,6 +136,69 @@
                             </div>
                         </div>
                     </form>
+
+                    <hr class="text-muted opacity-25 my-4">
+
+                    <!-- Modifiers Section -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">Options & Modifiers</h5>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addModifierGroupModal">
+                            <i class="bi bi-plus-lg me-1"></i> Add Group
+                        </button>
+                    </div>
+
+                    {% if selected_item.modifiers %}
+                        {% for group in selected_item.modifiers %}
+                        <div class="card border-0 shadow-sm mb-3 bg-white">
+                            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                                <div>
+                                    <span class="fw-bold">{{ group.name }}</span>
+                                    <span class="badge bg-light text-dark border ms-2">
+                                        {% if group.selection_type == 'single' %}
+                                            Single Select {{ '(Required)' if group.is_required else '(Optional)' }}
+                                        {% else %}
+                                            Multi Select 
+                                            {% if group.min_selection > 0 or group.max_selection %}
+                                                (
+                                                {%- if group.min_selection == group.max_selection -%}
+                                                    Select {{ group.min_selection }}
+                                                {%- else -%}
+                                                    {{ group.min_selection if group.min_selection else '0' }} - {{ group.max_selection if group.max_selection else 'Any' }}
+                                                {%- endif -%}
+                                                )
+                                            {% endif %}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <form action="{{ url_for('admin.delete_modifier_group', group_id=group.id) }}" method="POST" onsubmit="return confirm('Delete this group and all its options?');">
+                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                            <div class="card-body pt-0">
+                                <ul class="list-group list-group-flush mb-3">
+                                    {% for option in group.options %}
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center border-bottom-0 py-1">
+                                        <span>{{ option.name }} <span class="text-muted small">({{ "+$%.2f"|format(option.price_override) if option.price_override > 0 else "Free" }})</span></span>
+                                        <form action="{{ url_for('admin.delete_modifier_option', option_id=option.id) }}" method="POST">
+                                            <button type="submit" class="btn btn-sm btn-link text-muted p-0"><i class="bi bi-x-lg"></i></button>
+                                        </form>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                <form action="{{ url_for('admin.add_modifier_option') }}" method="POST" class="d-flex gap-2">
+                                    <input type="hidden" name="group_id" value="{{ group.id }}">
+                                    <input type="text" name="name" class="form-control form-control-sm" placeholder="Option Name (e.g. 50% Sugar)" required>
+                                    <input type="number" step="0.01" name="price" class="form-control form-control-sm" placeholder="Price (+)" style="max-width: 100px;">
+                                    <button type="submit" class="btn btn-sm btn-light border"><i class="bi bi-plus-lg"></i></button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4 border rounded-3 bg-white text-muted">
+                            <p class="mb-0">No options configured (e.g. Sugar Level, Toppings).</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -193,6 +267,51 @@
     </div>
 </div>
 
+<!-- Add Modifier Group Modal -->
+<div class="modal fade" id="addModifierGroupModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Add Option Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.add_modifier_group') }}" method="POST">
+                <input type="hidden" name="item_id" value="{{ selected_item.id }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Group Name</label>
+                        <input type="text" name="name" class="form-control" placeholder="e.g. Sugar Level" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <select name="selection_type" class="form-select" id="mod-type-select">
+                            <option value="single">Single Selection (Radio)</option>
+                            <option value="multiple">Multiple Selection (Checkbox)</option>
+                        </select>
+                    </div>
+                    <div class="form-check form-switch" id="mod-req-div">
+                        <input class="form-check-input" type="checkbox" name="is_required" id="reqCheck">
+                        <label class="form-check-label" for="reqCheck">Required Selection</label>
+                    </div>
+                    <div class="row g-2 d-none" id="mod-limits-div">
+                        <div class="col-6">
+                            <label class="form-label small">Min Select</label>
+                            <input type="number" name="min_selection" class="form-control" min="0" placeholder="0">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">Max Select</label>
+                            <input type="number" name="max_selection" class="form-control" min="1" placeholder="Any">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill">Create Group</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -209,6 +328,21 @@ function previewImage(input) {
         }
         reader.readAsDataURL(input.files[0]);
     }
+}
+
+function toggleItemStatus(itemId) {
+    fetch(`/admin/availability/toggle/${itemId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+        if (response.ok) window.location.reload();
+        else alert('Failed to update status.');
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error.');
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -243,6 +377,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 previewImage(fileInput);
             }
         }, false);
+    }
+
+    // Modifier Modal Logic
+    const modTypeSelect = document.getElementById('mod-type-select');
+    const modReqDiv = document.getElementById('mod-req-div');
+    const modLimitsDiv = document.getElementById('mod-limits-div');
+    if(modTypeSelect) {
+        modTypeSelect.addEventListener('change', function() {
+            const isMulti = this.value === 'multiple';
+            modReqDiv.classList.toggle('d-none', isMulti);
+            modLimitsDiv.classList.toggle('d-none', !isMulti);
+        });
     }
 });
 </script>

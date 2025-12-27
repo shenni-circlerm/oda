@@ -78,6 +78,7 @@ class MenuItem(db.Model):
     sku = db.Column(db.String(50), nullable=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Float, nullable=False)
+    compare_at_price = db.Column(db.Float, nullable=True)
     description = db.Column(db.Text)
     image_filename = db.Column(db.String(255), default="default_food.jpg")
     image_data = db.Column(db.LargeBinary)
@@ -85,6 +86,7 @@ class MenuItem(db.Model):
     is_available = db.Column(db.Boolean, default=True)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     categories = db.relationship('Category', secondary=menu_item_categories, backref=db.backref('items', lazy='subquery'))
+    modifiers = db.relationship('ModifierGroup', backref='menu_item', cascade="all, delete-orphan")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Table(db.Model):
@@ -107,9 +109,12 @@ class ModifierGroup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50)) # e.g., "Choose your protein"
     is_required = db.Column(db.Boolean, default=False)
+    selection_type = db.Column(db.String(20), default='single') # 'single' or 'multiple'
+    min_selection = db.Column(db.Integer, default=0)
+    max_selection = db.Column(db.Integer, nullable=True)
     menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_item.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    options = db.relationship('ModifierOption', backref='group')
+    options = db.relationship('ModifierOption', backref='group', cascade="all, delete-orphan")
 
 class ModifierOption(db.Model):
     id = db.Column(db.Integer, primary_key=True)
