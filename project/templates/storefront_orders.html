@@ -13,13 +13,46 @@
                     <i class="bi bi-plus-lg"></i> New Order
                 </button>
             </div>
-            <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
+            <div class="p-2 border-bottom bg-light">
+                <div class="d-flex flex-wrap gap-1" id="order-status-filter">
+                    <div class="btn-group" role="group">
+                        <input type="checkbox" class="btn-check" id="filter-all" autocomplete="off" checked>
+                        <label class="btn btn-sm btn-outline-primary" for="filter-all">All</label>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <input type="checkbox" class="btn-check" id="filter-pending" data-status-filter="pending" autocomplete="off" checked>
+                        <label class="btn btn-sm btn-outline-secondary" for="filter-pending">Pending</label>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <input type="checkbox" class="btn-check" id="filter-preparing" data-status-filter="preparing" autocomplete="off" checked>
+                        <label class="btn btn-sm btn-outline-secondary" for="filter-preparing">Preparing</label>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <input type="checkbox" class="btn-check" id="filter-ready" data-status-filter="ready" autocomplete="off" checked>
+                        <label class="btn btn-sm btn-outline-secondary" for="filter-ready">Ready</label>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <input type="checkbox" class="btn-check" id="filter-served" data-status-filter="served" autocomplete="off" checked>
+                        <label class="btn btn-sm btn-outline-secondary" for="filter-served">Served</label>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <input type="checkbox" class="btn-check" id="filter-paid" data-status-filter="paid" autocomplete="off" checked>
+                        <label class="btn btn-sm btn-outline-secondary" for="filter-paid">Paid</label>
+                    </div>
+                </div>
+            </div>
+            <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 205px);">
                 {% for order in orders %}
+                {% set status_colors = {
+                    'pending': 'warning', 'preparing': 'info', 'ready': 'success', 
+                    'served': 'primary', 'paid': 'secondary'
+                } %}
                 <a href="{{ url_for('admin.storefront_orders', order_id=order.id) }}" 
-                   class="list-group-item list-group-item-action py-3 border-0 {% if selected_order and selected_order.id == order.id %}bg-secondary bg-opacity-10{% endif %}">
+                   class="list-group-item list-group-item-action py-3 border-0 order-list-item {% if selected_order and selected_order.id == order.id %}bg-secondary bg-opacity-10{% endif %}"
+                   data-status="{{ order.status }}">
                     <div class="d-flex justify-content-between align-items-start mb-1">
                         <span class="fw-bold">Table {{ order.table.number }}</span>
-                        <span class="badge rounded-pill bg-{{ 'warning' if order.status == 'pending' else ('info' if order.status == 'preparing' else ('success' if order.status == 'ready' else 'secondary')) }} text-dark">
+                        <span class="badge rounded-pill bg-{{ status_colors.get(order.status, 'light') }} text-dark">
                             {{ order.status|title }}
                         </span>
                     </div>
@@ -45,9 +78,14 @@
                         <h4 class="fw-bold mb-0">Order #{{ selected_order.id }}</h4>
                         <span class="text-muted">Table {{ selected_order.table.number }}</span>
                     </div>
-                    <button class="btn btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addItemModal">
-                        <i class="bi bi-plus-lg me-2"></i>Add Item
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                            <i class="bi bi-plus-lg me-2"></i>Add Item
+                        </button>
+                        <a href="{{ url_for('admin.storefront_payment', order_id=selected_order.id) }}" class="btn btn-success rounded-pill">
+                            <i class="bi bi-credit-card me-2"></i>Pay
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body p-0 overflow-auto">
                     <table class="table table-hover mb-0 align-middle">
@@ -220,28 +258,6 @@
 </div>
 {% endif %}
 
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('menu-item-search');
-    if (searchInput) {
-        searchInput.addEventListener('keyup', function() {
-            const filter = searchInput.value.toLowerCase();
-            const items = document.querySelectorAll('#menu-item-list-container .menu-item-filterable');
-            items.forEach(function(item) {
-                const name = item.querySelector('.item-name').textContent.toLowerCase();
-                if (name.includes(filter)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-    }
-});
-</script>
-{% endblock %}
-
 <!-- New Order Modal -->
 <div class="modal fade" id="newOrderModal" tabindex="-1">
     <div class="modal-dialog">
@@ -271,4 +287,64 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('menu-item-search');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const filter = searchInput.value.toLowerCase();
+            const items = document.querySelectorAll('#menu-item-list-container .menu-item-filterable');
+            items.forEach(function(item) {
+                const name = item.querySelector('.item-name').textContent.toLowerCase();
+                if (name.includes(filter)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    // Order status filter
+    const filterContainer = document.getElementById('order-status-filter');
+    const allCheckbox = document.getElementById('filter-all');
+    const statusCheckboxes = filterContainer ? filterContainer.querySelectorAll('.btn-check:not(#filter-all)') : [];
+
+    function applyOrderStatusFilter() {
+        const orderItems = document.querySelectorAll('.order-list-item');
+        const showAll = allCheckbox.checked;
+        const selectedStatuses = new Set();
+
+        if (!showAll) {
+            statusCheckboxes.forEach(cb => {
+                if (cb.checked) {
+                    selectedStatuses.add(cb.dataset.statusFilter);
+                }
+            });
+        }
+
+        orderItems.forEach(item => {
+            const itemStatus = item.dataset.status;
+            item.style.display = (showAll || selectedStatuses.has(itemStatus)) ? 'block' : 'none';
+        });
+    }
+
+    if (allCheckbox) {
+        allCheckbox.addEventListener('change', function() {
+            statusCheckboxes.forEach(cb => cb.checked = this.checked);
+            applyOrderStatusFilter();
+        });
+    }
+
+    statusCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            allCheckbox.checked = [...statusCheckboxes].every(cb => cb.checked);
+            applyOrderStatusFilter();
+        });
+    });
+});
+</script>
 {% endblock %}

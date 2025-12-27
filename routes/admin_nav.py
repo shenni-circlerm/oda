@@ -4,8 +4,7 @@ MENU_STRUCTURE = {
     'kitchen': [
         {'label': 'Orders', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-speedometer2'},
         {'label': 'Tables', 'endpoint': 'admin.tables', 'icon': 'bi-grid-3x3'},
-        {'label': 'Stations', 'endpoint': 'admin.manage_stations', 'icon': 'bi-hdd-stack'},
-        {'label': 'Paid / Completed', 'endpoint': 'admin.completed', 'icon': 'bi-check-circle'},
+        {'label': 'Stations', 'endpoint': 'admin.manage_stations', 'icon': 'bi-hdd-stack'}
     ],
     'office': [
         {'label': 'Analytics', 'endpoint': 'analytics.analytics_dashboard', 'icon': 'bi-graph-up'},
@@ -16,7 +15,6 @@ MENU_STRUCTURE = {
     'store_front': [
         {'label': 'Tables', 'endpoint': 'admin.storefront_tables', 'icon': 'bi-grid-3x3'},
         {'label': 'Active Orders', 'endpoint': 'admin.storefront_orders', 'icon': 'bi-receipt'},
-        {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
     ],
     'menu': [
         {'label': 'Menus', 'endpoint': 'admin.menus', 'icon': 'bi-journal-album'},

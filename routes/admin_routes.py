@@ -1,12 +1,12 @@
 from functools import wraps
-from flask import Blueprint, abort, request, redirect, url_for, render_template, flash, current_app, send_file, session
+from flask import Blueprint, abort, request, redirect, url_for, render_template, flash, current_app, send_file, session, jsonify
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 from io import BytesIO
 from datetime import datetime
-from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.orm import selectinload
 
 from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu, ModifierGroup, ModifierOption, Station
 from extensions import db, socketio
@@ -344,13 +344,34 @@ def serve_restaurant_image(restaurant_id, image_type):
 def tables():
     tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
-    
-    active_orders = Order.query.filter_by(restaurant_id=current_user.restaurant_id).filter(Order.status.in_(['pending', 'preparing', 'ready'])).all()
-    
+
+    active_orders = Order.query.filter_by(
+        restaurant_id=current_user.restaurant_id
+    ).filter(
+        Order.status.in_(['pending', 'preparing', 'ready'])
+    ).options(
+        selectinload(Order.items)
+    ).all()
+
     table_status = {}
-    for order in active_orders:
-        table_status[order.table_id] = order.status
-        
+    for table in tables:
+        order = next((o for o in active_orders if o.table_id == table.id), None)
+        if order:
+            total_items = len(order.items)
+            item_counts = {
+                'total': total_items,
+                'pending': sum(1 for item in order.items if item.status == 'pending'),
+                'preparing': sum(1 for item in order.items if item.status == 'preparing'),
+                'ready': sum(1 for item in order.items if item.status == 'ready')
+            } if total_items > 0 else None
+            table_status[table.id] = {
+                'status': order.status,
+                'created_at': order.created_at.isoformat() + "Z", # ISO format for JS
+                'item_counts': item_counts
+            }
+        else:
+            table_status[table.id] = { 'status': 'available', 'created_at': None, 'item_counts': None }
+
     return render_template('kitchen_tables.html', tables=tables, table_status=table_status)
 
 @admin_bp.route('/admin/stations', methods=['GET', 'POST'])
@@ -1050,11 +1071,12 @@ def storefront_orders():
         elif action == 'create_order':
             table_id = request.form.get('table_id')
             if table_id:
+                blocking_statuses = ['pending', 'preparing', 'ready', 'served']
                 existing_order = Order.query.filter_by(
                     table_id=table_id, 
                     restaurant_id=restaurant.id
                 ).filter(
-                    Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid'])
+                    Order.status.in_(blocking_statuses)
                 ).first()
 
                 if existing_order:
@@ -1142,24 +1164,16 @@ def storefront_orders():
     
     menu_items = MenuItem.query.filter_by(restaurant_id=restaurant.id, is_available=True).all()
     
-    # --- DEBUG PRINTS START ---
-    print("\n--- Debugging Available Tables for New Order ---")
-    all_restaurant_tables = Table.query.filter_by(restaurant_id=restaurant.id).all()
-    print(f"Total tables for restaurant: {len(all_restaurant_tables)}")
-    for t in all_restaurant_tables:
-        print(f"  - Table ID: {t.id}, Number: {t.number}, Status: '{t.status}'")
+    # A table is unavailable for a new order if it has an active, unpaid order.
+    # 'paid' orders are still in the main `orders` list for display, but don't block a new order.
+    blocking_statuses = ['pending', 'preparing', 'ready', 'served']
+    unavailable_table_ids = [o.table_id for o in orders if o.status in blocking_statuses]
 
-    active_table_ids = [o.table_id for o in orders]
-    print(f"Active table IDs from orders: {active_table_ids}")
-    
     available_tables = Table.query.filter(
         Table.restaurant_id == restaurant.id,
-        Table.id.notin_(active_table_ids), # Exclude tables with active orders
+        Table.id.notin_(unavailable_table_ids), # Exclude tables with active, unpaid orders
         Table.status != 'maintenance'      # Exclude tables under maintenance
     ).all()
-    print(f"Final 'available_tables' count after filtering: {len(available_tables)}")
-    print("------------------------------------------------\n")
-    # --- DEBUG PRINTS END ---
     
     selected_order = None
     selected_id = request.args.get('order_id')
@@ -1170,3 +1184,24 @@ def storefront_orders():
         selected_order = orders[0]
 
     return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables)
+
+@admin_bp.route('/admin/storefront/payment/<int:order_id>', methods=['GET', 'POST'])
+@login_required
+def storefront_payment(order_id):
+
+    print("in storefront payment route")
+
+    order = Order.query.filter_by(id=order_id, restaurant_id=current_user.restaurant_id).first_or_404()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'mark_as_paid':
+            order.status = 'paid'
+            # Here you would integrate with a real payment gateway if needed
+            # For now, we just update the status
+            db.session.commit()
+            flash(f'Order #{order.id} for Table {order.table.number} marked as paid.')
+            return redirect(url_for('admin.storefront_orders'))
+
+    total = sum(item.menu_item.price * item.quantity for item in order.items)
+    return render_template('storefront_payment.html', order=order, total=total)

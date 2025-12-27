@@ -1,39 +1,156 @@
 {% extends "base.html" %}
 
-{% block title %}Kitchen - Tables{% endblock %}
+{% block title %}Table Status{% endblock %}
+
+{% block styles %}
+<style>
+    .table-card {
+        border: 1px solid #dee2e6;
+        border-left-width: 5px;
+        border-left-style: solid;
+    }
+    .status-pending { border-color: #ffc107; } /* Warning */
+    .status-preparing { border-color: #0dcaf0; } /* Info */
+    .status-ready { border-color: #198754; } /* Success */
+    .status-available { border-color: #dee2e6; } /* Light Grey */
+    .status-occupied { border-color: #6c757d; } /* Secondary */
+    .status-maintenance { border-color: #212529; } /* Dark */
+
+    /* Display Mode Adjustments */
+    #table-grid.display-small .table-col-item {
+        width: 16.66%; /* 6 columns on large screens */
+    }
+    #table-grid.display-small .card-body { text-align: center; }
+    #table-grid.display-small .progress-info,
+    #table-grid.display-small .progress,
+    #table-grid.display-small .bi-cup-straw,
+    #table-grid.display-small .status-badge { display: none; }
+    #table-grid.display-small .timer-button { padding: 0.5rem 0 !important; }
+
+    #table-grid.display-medium .table-col-item {
+        width: 25%; /* 4 columns */
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold mb-0">Table Status</h2>
-        <div class="d-flex gap-2">
-            <span class="badge bg-secondary bg-opacity-25 text-dark border">Free</span>
-            <span class="badge bg-danger">Pending</span>
-            <span class="badge bg-warning text-dark">Preparing</span>
-            <span class="badge bg-success">Ready</span>
+        <h2 class="fw-bold mb-0">Live Table Status</h2>
+        <div class="d-flex align-items-center gap-4">
+            <div class="d-flex gap-3 small text-muted">
+                <span><i class="bi bi-square-fill text-warning"></i> New</span>
+                <span><i class="bi bi-square-fill text-info"></i> Prep</span>
+                <span><i class="bi bi-square-fill text-success"></i> Ready</span>
+            </div>
+            <div class="btn-group" role="group" id="display-mode-group">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-mode="small" onclick="setDisplayMode('small')" title="Compact View"><i class="bi bi-grid-fill"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-mode="medium" onclick="setDisplayMode('medium')" title="Medium View"><i class="bi bi-grid-3x3-gap-fill"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-mode="large" onclick="setDisplayMode('large')" title="Large View"><i class="bi bi-square-fill"></i></button>
+            </div>
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4" id="table-grid">
         {% for table in tables %}
-            {% set status = table_status.get(table.id) %}
-            <div class="col-6 col-md-4 col-lg-3 col-xl-2">
-                <div class="card h-100 text-center shadow-sm {{ 'border-danger bg-danger bg-opacity-10' if status == 'pending' else ('border-warning bg-warning bg-opacity-10' if status == 'preparing' else ('border-success bg-success bg-opacity-10' if status == 'ready' else 'border-secondary border-opacity-10')) }}">
-                    <div class="card-body d-flex flex-column justify-content-center align-items-center py-4">
-                        <h3 class="fw-bold mb-0">{{ table.number }}</h3>
-                        <small class="text-uppercase fw-bold mt-2 {{ 'text-danger' if status == 'pending' else ('text-warning' if status == 'preparing' else ('text-success' if status == 'ready' else 'text-muted')) }}">
-                            {{ status or 'Free' }}
-                        </small>
+        {% set data = table_status.get(table.id) %}
+        <div class="table-col-item col-lg-4 col-md-6">
+            <div class="card h-100 shadow-sm table-card status-{{ data.status if data else 'available' }}" id="table-card-{{ table.id }}">
+                <div class="card-body d-flex flex-column p-2">
+                    <div class="d-flex justify-content-between align-items-start p-1">
+                        <h5 class="card-title fw-bold mb-0">Table {{ table.number }}</h5>
+                        {% if data and data.status in ['pending', 'preparing', 'ready'] %}
+                            <span class="badge rounded-pill bg-{{ 'warning' if data.status == 'pending' else ('info' if data.status == 'preparing' else 'success') }} text-dark status-badge">
+                                {{ 'New' if data.status == 'pending' else data.status|title }}
+                            </span>
+                        {% endif %}
                     </div>
+
+                    <div class="flex-grow-1 d-flex align-items-center justify-content-center my-2">
+                        {% if data and data.status == 'pending' and data.created_at %}
+                        <div class="timer-button text-center p-2 rounded-3 bg-light w-100">
+                            <div class="elapsed-time fw-bold fs-4" data-timestamp="{{ data.created_at }}">...</div>
+                            <div class="badge bg-danger-subtle text-danger-emphasis rounded-pill d-none late-badge">LATE</div>
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-cup-straw fs-1"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if data and data.item_counts %}
+                    <div class="mt-auto p-1">
+                        <div class="progress" style="height: 5px;" title="Item Status">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ (data.item_counts.ready / data.item_counts.total) * 100 }}%" title="{{ data.item_counts.ready }} Ready"></div>
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ (data.item_counts.preparing / data.item_counts.total) * 100 }}%" title="{{ data.item_counts.preparing }} Preparing"></div>
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: {{ (data.item_counts.pending / data.item_counts.total) * 100 }}%" title="{{ data.item_counts.pending }} New"></div>
+                        </div>
+                        <div class="d-flex justify-content-between small mt-1 text-muted progress-info">
+                            <span>{{ data.item_counts.pending }} New</span>
+                            <span>{{ data.item_counts.preparing }} Prep</span>
+                            <span>{{ data.item_counts.ready }} Ready</span>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-        {% else %}
-            <div class="col-12 text-center text-muted py-5">
-                <i class="bi bi-grid-3x3 fs-1 mb-3 d-block opacity-25"></i>
-                <p>Add table to your restaurants.</p>
-                <a href="{{ url_for('admin.storefront_tables') }}" class="btn btn-primary mt-2">Add table</a>
-            </div>
+        </div>
         {% endfor %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setDisplayMode(mode) {
+    const grid = document.getElementById('table-grid');
+    const buttons = document.querySelectorAll('#display-mode-group .btn');
+
+    grid.classList.remove('display-small', 'display-medium', 'display-large');
+    grid.classList.add(`display-${mode}`);
+
+    buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    localStorage.setItem('tableDisplayMode', mode);
+}
+
+function updateElapsedTimes() {
+    const timeElements = document.querySelectorAll('.elapsed-time');
+    const LATE_THRESHOLD_SECONDS = 600; // 10 minutes
+
+    timeElements.forEach(el => {
+        const timestamp = el.dataset.timestamp;
+        if (timestamp) {
+            const startTime = new Date(timestamp);
+            const now = new Date();
+            const diff = Math.floor((now - startTime) / 1000);
+
+            if (diff < 0) return;
+
+            const minutes = Math.floor(diff / 60);
+            const seconds = diff % 60;
+
+            el.textContent = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+            
+            if (diff > LATE_THRESHOLD_SECONDS) {
+                const timerButton = el.closest('.timer-button');
+                if (timerButton) {
+                    const lateBadge = timerButton.querySelector('.late-badge');
+                    if(lateBadge) lateBadge.classList.remove('d-none');
+                }
+            }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const savedMode = localStorage.getItem('tableDisplayMode') || 'large';
+    setDisplayMode(savedMode);
+    updateElapsedTimes();
+    setInterval(updateElapsedTimes, 1000);
+});
+</script>
 {% endblock %}
