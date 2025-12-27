@@ -39,9 +39,21 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
                     <h4 class="fw-bold mb-0">Edit Menu</h4>
-                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteMenuModal">
-                        <i class="bi bi-trash me-1"></i> Delete
-                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots-vertical fs-5"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                            <li>
+                                <button class="dropdown-item" onclick="document.getElementById('activeCheck').click(); document.querySelector('form').submit();">
+                                    <i class="bi bi-toggle-{{ 'on text-success' if selected_menu.is_active else 'off text-muted' }} me-2"></i>
+                                    {{ 'Deactivate' if selected_menu.is_active else 'Activate' }}
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#deleteMenuModal"><i class="bi bi-trash me-2"></i>Delete</button></li>
+                        </ul>
+                    </div>
                 </div>
                 <div class="card-body p-4 overflow-auto">
                     <form action="{{ url_for('admin.menus') }}" method="POST">
@@ -143,29 +155,6 @@
                         <p class="mb-0">No categories assigned to this menu yet.</p>
                     </div>
                     {% endif %}
-                </div>
-            </div>
-
-            <!-- Delete Menu Confirmation Modal -->
-            <div class="modal fade" id="deleteMenuModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered modal-sm">
-                    <div class="modal-content border-0 shadow rounded-4">
-                        <div class="modal-body p-4 text-center">
-                            <div class="mb-3">
-                                <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
-                                    <i class="bi bi-trash3 fs-3"></i>
-                                </div>
-                            </div>
-                            <h5 class="fw-bold mb-2">Delete Menu?</h5>
-                            <p class="text-muted small mb-4">Are you sure you want to delete <strong>{{ selected_menu.name }}</strong>? Categories will be unassigned.</p>
-                            <div class="d-grid gap-2">
-                                <form action="{{ url_for('admin.delete_menu', menu_id=selected_menu.id) }}" method="POST">
-                                    <button type="submit" class="btn btn-danger w-100 rounded-pill">Delete Menu</button>
-                                </form>
-                                <button type="button" class="btn btn-light w-100 rounded-pill" data-bs-dismiss="modal">Cancel</button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             {% else %}
