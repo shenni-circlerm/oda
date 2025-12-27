@@ -128,6 +128,15 @@
                                         <label class="form-label">Description</label>
                                         <textarea name="description" class="form-control" rows="3">{{ selected_item.description }}</textarea>
                                     </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Kitchen Station</label>
+                                        <select name="station_id" class="form-select">
+                                            <option value="">None</option>
+                                            {% for station in stations %}
+                                            <option value="{{ station.id }}" {% if selected_item.station_id == station.id %}selected{% endif %}>{{ station.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                     <input type="checkbox" name="is_available" {% if selected_item.is_available %}checked{% endif %} hidden>
                                     <div class="col-12 mt-3">
                                         <button type="submit" class="btn btn-primary rounded-pill px-4">Save Changes</button>

@@ -85,6 +85,7 @@ class MenuItem(db.Model):
     image_mimetype = db.Column(db.String(50))
     is_available = db.Column(db.Boolean, default=True)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    station_id = db.Column(db.Integer, db.ForeignKey('station.id'), nullable=True)
     categories = db.relationship('Category', secondary=menu_item_categories, backref=db.backref('items', lazy='subquery'))
     modifiers = db.relationship('ModifierGroup', backref='menu_item', cascade="all, delete-orphan")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -145,5 +146,12 @@ class OrderItem(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_item.id'))
     quantity = db.Column(db.Integer, default=1)
+    status = db.Column(db.String(20), default='pending') # 'pending', 'preparing', 'ready'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     menu_item = db.relationship('MenuItem')
+
+class Station(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    restaurant = db.relationship('Restaurant', backref='stations')

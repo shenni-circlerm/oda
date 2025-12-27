@@ -65,13 +65,13 @@
                                 <label class="form-label">Menu Name</label>
                                 <input type="text" name="name" value="{{ selected_menu.name }}" class="form-control" required>
                             </div>
-                            <div class="col-md-4">
+                            <!-- <div class="col-md-4">
                                 <label class="form-label d-block">&nbsp;</label>
                                 <div class="form-check form-switch mt-2">
                                     <input type="checkbox" name="is_active" class="form-check-input" id="activeCheck" {% if selected_menu.is_active %}checked{% endif %}>
                                     <label class="form-check-label" for="activeCheck">Menu Active</label>
                                 </div>
-                            </div>
+                            </div> -->
                             <div class="col-12">
                                 <label class="form-label">Description</label>
                                 <textarea name="description" class="form-control" rows="2">{{ selected_menu.description }}</textarea>

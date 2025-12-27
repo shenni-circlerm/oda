@@ -4,6 +4,7 @@ MENU_STRUCTURE = {
     'kitchen': [
         {'label': 'Orders', 'endpoint': 'admin.staff_dashboard', 'icon': 'bi-speedometer2'},
         {'label': 'Tables', 'endpoint': 'admin.tables', 'icon': 'bi-grid-3x3'},
+        {'label': 'Stations', 'endpoint': 'admin.manage_stations', 'icon': 'bi-hdd-stack'},
         {'label': 'Paid / Completed', 'endpoint': 'admin.completed', 'icon': 'bi-check-circle'},
     ],
     'office': [

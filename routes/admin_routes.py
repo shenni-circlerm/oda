@@ -8,7 +8,7 @@ from io import BytesIO
 from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
 
-from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu, ModifierGroup, ModifierOption
+from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu, ModifierGroup, ModifierOption, Station
 from extensions import db, socketio
 
 admin_bp = Blueprint('admin', __name__)
@@ -31,10 +31,27 @@ def admin_required(f):
 @admin_bp.route('/admin/dashboard')
 @login_required
 def staff_dashboard():
-    active_orders = Order.query.filter_by(
-        restaurant_id=current_user.restaurant_id
-    ).filter(Order.status.in_(['pending', 'preparing'])).all()
-    return render_template('kitchen_dashboard.html', orders=active_orders)
+    stations = Station.query.filter_by(restaurant_id=current_user.restaurant_id).order_by(Station.name).all()
+    
+    # Get all active order items that are not ready
+    active_items = db.session.query(OrderItem).join(Order).filter(
+        Order.restaurant_id == current_user.restaurant_id,
+        Order.status.in_(['pending', 'preparing']),
+        OrderItem.status != 'ready'
+    ).order_by(OrderItem.created_at).all()
+
+    # Group items by station
+    station_items = {station.id: [] for station in stations}
+    uncategorized_items = []
+
+    for item in active_items:
+        if item.menu_item.station_id:
+            if item.menu_item.station_id in station_items:
+                station_items[item.menu_item.station_id].append(item)
+        else:
+            uncategorized_items.append(item)
+
+    return render_template('kitchen_dashboard.html', stations=stations, station_items=station_items, uncategorized_items=uncategorized_items)
 
 @admin_bp.route('/admin/users')
 @login_required
@@ -72,6 +89,7 @@ def manage_menu():
     items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    stations = Station.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     
     selected_item = None
     item_id = request.args.get('item_id')
@@ -81,7 +99,7 @@ def manage_menu():
     if not selected_item and items:
         selected_item = items[0]
 
-    return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item, categories=categories, menus=menus)
+    return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item, categories=categories, menus=menus, stations=stations)
 
 @admin_bp.route('/admin/menu/add', methods=['POST'])
 @login_required
@@ -150,6 +168,7 @@ def edit_menu_item(item_id):
         compare_at_price = request.form.get('compare_at_price')
         item.compare_at_price = float(compare_at_price) if compare_at_price else None
         item.description = request.form.get('description')
+        item.station_id = request.form.get('station_id') or None
         item.is_available = 'is_available' in request.form
         
         category_ids = request.form.getlist('categories')
@@ -248,6 +267,40 @@ def delete_modifier_option(option_id):
         return redirect(url_for('admin.manage_menu', item_id=group.menu_item_id))
     return redirect(url_for('admin.manage_menu'))
 
+@admin_bp.route('/admin/order-item/status/<int:item_id>', methods=['POST'])
+@login_required
+def update_order_item_status(item_id):
+    item = db.session.get(OrderItem, item_id)
+    if item and item.order.restaurant_id == current_user.restaurant_id:
+        new_status = request.json.get('status')
+        if new_status in ['pending', 'preparing', 'ready']:
+            item.status = new_status
+            db.session.commit()
+            
+            order = item.order
+            all_ready = all(i.status == 'ready' for i in order.items)
+            if all_ready and order.status != 'ready':
+                order.status = 'ready'
+                db.session.commit()
+                socketio.emit('status_change', {'order_id': order.id, 'new_status': 'ready'}, room=f"order_{order.id}")
+
+            return jsonify({'success': True, 'item_id': item.id, 'new_status': new_status})
+    return jsonify({'success': False}), 403
+
+@admin_bp.route('/admin/item/<int:item_id>/assign-station', methods=['POST'])
+@login_required
+def assign_item_to_station(item_id):
+    menu_item = db.session.get(MenuItem, item_id)
+    station_id = request.json.get('station_id')
+
+    if menu_item and menu_item.restaurant_id == current_user.restaurant_id:
+        # 'uncategorized' is a frontend concept, so None in backend
+        menu_item.station_id = station_id if station_id != 'uncategorized' else None
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'"{menu_item.name}" assigned to new station.'})
+
+    return jsonify({'success': False, 'message': 'Item or station not found.'}), 404
+
 @admin_bp.route('/admin/order/<int:order_id>/update', methods=['POST'])
 @login_required
 def update_order_status(order_id):
@@ -299,6 +352,32 @@ def tables():
         table_status[order.table_id] = order.status
         
     return render_template('kitchen_tables.html', tables=tables, table_status=table_status)
+
+@admin_bp.route('/admin/stations', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_stations():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        if name:
+            new_station = Station(name=name, restaurant_id=current_user.restaurant_id)
+            db.session.add(new_station)
+            db.session.commit()
+            flash('Station created.')
+        return redirect(url_for('admin.manage_stations'))
+    
+    stations = Station.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    return render_template('kitchen_stations.html', stations=stations)
+
+@admin_bp.route('/admin/stations/delete/<int:station_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_station(station_id):
+    station = Station.query.filter_by(id=station_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    db.session.delete(station)
+    db.session.commit()
+    flash('Station deleted.')
+    return redirect(url_for('admin.manage_stations'))
 
 @admin_bp.route('/admin/completed')
 @login_required
@@ -1030,6 +1109,30 @@ def storefront_orders():
                     db.session.commit()
                     flash(f'Order #{source_order.id} merged into Order #{target_order.id}.')
                     return redirect(url_for('admin.storefront_orders', order_id=target_order.id))
+        
+        elif action == 'add_multiple_items':
+            if order_id:
+                items_added_count = 0
+                for key, value in request.form.items():
+                    if key.startswith('quantity_'):
+                        try:
+                            quantity = int(value)
+                            if quantity > 0:
+                                menu_item_id = key.split('_')[1]
+                                
+                                existing_item = OrderItem.query.filter_by(order_id=order_id, menu_item_id=menu_item_id).first()
+                                if existing_item:
+                                    existing_item.quantity += quantity
+                                else:
+                                    new_item = OrderItem(order_id=order_id, menu_item_id=menu_item_id, quantity=quantity)
+                                    db.session.add(new_item)
+                                
+                                items_added_count += 1
+                        except (ValueError, IndexError):
+                            continue
+                if items_added_count > 0:
+                    db.session.commit()
+                    flash(f'{items_added_count} item(s) added to the order.')
         
         return redirect(url_for('admin.storefront_orders', order_id=order_id))
 

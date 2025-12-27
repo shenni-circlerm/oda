@@ -279,7 +279,7 @@
             const activeCollapse = document.querySelector('.accordion-collapse.show');
             if (!activeCollapse) return;
             const pageKey = activeCollapse.id.replace('collapse', '');
-            if (renderers[pageKey]) previewContainer.innerHTML = rendererspageKey;
+            if (renderers[pageKey]) previewContainer.innerHTML = renderers[pageKey]();
         };
 
         document.querySelectorAll('.accordion-collapse').forEach(el => el.addEventListener('shown.bs.collapse', updatePreview));
