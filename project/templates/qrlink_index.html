@@ -1,33 +1,129 @@
 {% extends "customer_base.html" %}
 
-{% block title %}Find Your Menu{% endblock %}
+{% block title %}Find Your Menu - QRLink{% endblock %}
+
+{% block styles %}
+<style>
+    :root {
+        --brand-color: #2d3436;
+        --accent-color: #e67e22;
+        --bg-light: #fcfcfc;
+    }
+
+    body { 
+        background-color: var(--bg-light); 
+        font-family: 'Inter', -apple-system, sans-serif;
+        /* Optional: Add a soft gradient background for the index page */
+        background: radial-gradient(circle at top right, #fdfbfb 0%, #ebedee 100%);
+        min-height: 100vh;
+    }
+
+    .search-card {
+        border-radius: 28px;
+        border: none;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+    }
+
+    .icon-box {
+        width: 80px;
+        height: 80px;
+        background: var(--brand-color);
+        color: white;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 2.5rem;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+
+    .form-control {
+        border-radius: 12px;
+        padding: 12px 15px;
+        border: 1px solid #dfe6e9;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.1);
+    }
+
+    .btn-find {
+        background-color: var(--brand-color) !important;
+        border: none;
+        border-radius: 12px;
+        padding: 14px;
+        font-weight: 600;
+        transition: transform 0.2s ease;
+    }
+
+    .btn-find:active {
+        transform: scale(0.98);
+    }
+
+    .owner-link {
+        color: var(--accent-color);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .owner-link:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-        <div class="text-center p-5 bg-white rounded shadow-sm">
-            <div class="mb-4 text-primary" style="font-size: 5rem;">
-                <i class="bi bi-qr-code-scan"></i>
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 85vh;">
+    <div class="row justify-content-center w-100">
+        <div class="col-md-8 col-lg-5">
+            <div class="card search-card shadow-lg p-4 p-md-5">
+                <div class="text-center">
+                    <div class="icon-box">
+                        <i class="bi bi-qr-code-scan"></i>
+                    </div>
+                    <h2 class="fw-bold mb-2">Find a Menu</h2>
+                    <p class="text-muted mb-4 px-3">Enter the restaurant details below to view the menu and start ordering.</p>
+                    
+                    <form id="manual-entry-form" class="text-start">
+                        <div class="mb-3">
+                            <label for="restaurant-slug" class="form-label small fw-bold text-uppercase text-muted">Restaurant Code</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                    <i class="bi bi-shop"></i>
+                                </span>
+                                <input type="text" id="restaurant-slug" class="form-control border-start-0" 
+                                       placeholder="e.g. joes-pizza" required style="border-radius: 0 12px 12px 0;">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="table-number" class="form-label small fw-bold text-uppercase text-muted">Table Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                                    <i class="bi bi-hash"></i>
+                                </span>
+                                <input type="text" id="table-number" class="form-control border-start-0" 
+                                       placeholder="Optional" style="border-radius: 0 12px 12px 0;">
+                            </div>
+                            <div class="form-text mt-2 small">Leave table blank for Take-Away orders.</div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-find">Explore Menu</button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4" style="opacity: 0.1;">
+                    
+                    <p class="small text-muted mb-0">
+                        Restaurant owner? <a href="{{ url_for('admin.landing') }}" class="owner-link">Manage your shop</a>
+                    </p>
+                </div>
             </div>
-            <h1 class="fw-bold">Welcome!</h1>
-            <p class="lead text-muted">Please scan a QR code, or enter your restaurant and table details below.</p>
-            
-            <form id="manual-entry-form" class="mt-4">
-                <div class="mb-3">
-                    <label for="restaurant-slug" class="form-label">Restaurant Code</label>
-                    <input type="text" id="restaurant-slug" class="form-control" placeholder="e.g. joes-pizza" required>
-                </div>
-                <div class="mb-3">
-                    <label for="table-number" class="form-label">Table Number (for Dine-In)</label>
-                    <input type="text" id="table-number" class="form-control" placeholder="e.g. 15">
-                    <div class="form-text">Leave blank for Take-Away orders.</div>
-                </div>
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-primary">Find Menu</button>
-                </div>
-            </form>
-            <hr class="my-4">
-            <p class="small text-muted">If you are a restaurant owner, please <a href="{{ url_for('admin.landing') }}">log in here</a>.</p>
         </div>
     </div>
 </div>
@@ -37,7 +133,7 @@
 <script>
     document.getElementById('manual-entry-form').addEventListener('submit', function(event) {
         event.preventDefault();
-        const slug = document.getElementById('restaurant-slug').value.trim();
+        const slug = document.getElementById('restaurant-slug').value.trim().toLowerCase();
         const table = document.getElementById('table-number').value.trim();
         
         if (slug) {
@@ -47,7 +143,14 @@
             }
             window.location.href = url;
         } else {
-            alert('Please enter a restaurant code.');
+            // A slightly cleaner alert style
+            const btn = document.querySelector('.btn-find');
+            btn.classList.add('btn-danger');
+            btn.textContent = 'Please enter a code';
+            setTimeout(() => {
+                btn.classList.remove('btn-danger');
+                btn.textContent = 'Explore Menu';
+            }, 2000);
         }
     });
 </script>

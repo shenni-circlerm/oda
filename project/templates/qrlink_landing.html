@@ -1,23 +1,149 @@
 {% extends "customer_base.html" %}
 
-{% block title %}{{ restaurant.name }} - Welcome{% endblock %}
+{% block title %}Welcome to {{ restaurant.name }}{% endblock %}
+
+{% block styles %}
+<style>
+    :root {
+        --brand-color: #2d3436;
+        --accent-color: #e67e22;
+        --bg-light: #fcfcfc;
+    }
+
+    body { 
+        background-color: var(--bg-light); 
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    .landing-card {
+        border-radius: 28px;
+        border: none;
+        overflow: hidden;
+        background: white;
+    }
+
+    .restaurant-logo {
+        width: 100px; 
+        height: 100px; 
+        object-fit: cover;
+        border: 4px solid white;
+        margin-top: -50px;
+    }
+
+    .banner-container {
+        height: 180px;
+        background-color: #dfe6e9;
+        background-size: cover;
+        background-position: center;
+    }
+
+    .order-option-card {
+        border: 2px solid #f1f2f6;
+        border-radius: 18px;
+        padding: 20px;
+        text-decoration: none;
+        color: var(--brand-color);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .order-option-card:active {
+        background-color: #f8f9fa;
+        border-color: var(--accent-color);
+        transform: scale(0.98);
+    }
+
+    .order-option-card i {
+        font-size: 1.8rem;
+        color: var(--accent-color);
+    }
+
+    .option-title {
+        font-weight: 700;
+        margin-bottom: 2px;
+        display: block;
+    }
+
+    .option-desc {
+        font-size: 0.85rem;
+        color: #636e72;
+        display: block;
+    }
+
+    .table-badge {
+        background: var(--brand-color);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        display: inline-block;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="text-center p-4 bg-white rounded shadow-sm mt-4">
-    {% if restaurant.logo_data %}
-    <img src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}" class="rounded-circle shadow-sm mb-4" style="width: 120px; height: 120px; object-fit: cover;" alt="Logo">
-    {% elif restaurant.banner_data %}
-    <img src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}" class="img-fluid rounded mb-4" alt="Banner">
-    {% else %}
-    <div class="mb-4 text-primary" style="font-size: 5rem;"><i class="bi bi-shop"></i></div>
-    {% endif %}
-    <h1 class="fw-bold">{{ restaurant.name }}</h1>
-    <p class="lead text-muted">{{ restaurant.tagline }}</p>
-    <hr>
-    <p class="fw-bold">How would you like to order?</p>
-    <div class="d-grid gap-2 col-8 mx-auto">
-        <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, table=table.number if table else None, type='dine-in') }}" class="btn btn-primary btn-lg">Dine-In</a>
-        <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, type='take-away') }}" class="btn btn-secondary btn-lg">Take-Away</a>
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-5">
+            <div class="card landing-card shadow-sm text-center">
+                <div class="banner-container" 
+                     {% if restaurant.banner_data %}
+                     style="background-image: url('{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}');"
+                     {% endif %}>
+                </div>
+
+                <div class="card-body px-4 pb-5">
+                    {% if restaurant.logo_data %}
+                    <img src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}" 
+                         class="restaurant-logo rounded-circle shadow" alt="Logo">
+                    {% else %}
+                    <div class="restaurant-logo rounded-circle shadow bg-white d-flex align-items-center justify-content-center mx-auto">
+                        <i class="bi bi-shop fs-2 text-primary"></i>
+                    </div>
+                    {% endif %}
+
+                    <h2 class="fw-bold mt-3 mb-1">{{ restaurant.name }}</h2>
+                    <p class="text-muted small mb-3">{{ restaurant.tagline or 'Welcome! Choose an option to start.' }}</p>
+                    
+                    {% if table %}
+                    <div class="table-badge">Table {{ table.number }}</div>
+                    {% endif %}
+
+                    <div class="mt-4 pt-2">
+                        <p class="fw-bold mb-3">How would you like to order?</p>
+                        
+                        <div class="d-grid gap-3">
+                            <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, table=table.number if table else None, type='dine-in') }}" 
+                               class="order-option-card shadow-sm text-start">
+                                <i class="bi bi-shop-window"></i>
+                                <div>
+                                    <span class="option-title">Dine-In</span>
+                                    <span class="option-desc">Enjoy your meal at our restaurant.</span>
+                                </div>
+                                <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
+                            </a>
+
+                            <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, type='take-away') }}" 
+                               class="order-option-card shadow-sm text-start">
+                                <i class="bi bi-bag-heart"></i>
+                                <div>
+                                    <span class="option-title">Take-Away</span>
+                                    <span class="option-desc">Pick up your order and go.</span>
+                                </div>
+                                <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="text-center mt-4 text-muted small">
+                Powered by QRLink
+            </p>
+        </div>
     </div>
 </div>
 {% endblock %}

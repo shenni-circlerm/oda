@@ -12,9 +12,6 @@
         :root {
             --brand-color: {{ restaurant.brand_color }};
         }
-        .navbar.bg-brand {
-            background-color: var(--brand-color) !important;
-        }
         .btn-primary {
             background-color: var(--brand-color);
             border-color: var(--brand-color);
@@ -24,20 +21,6 @@
     {% block styles %}{% endblock %}
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-brand mb-4">
-      <div class="container">
-        <a class="navbar-brand" href="{{ url_for('admin.landing') }}">QR Order</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-auto">
-            {# Add any public nav links here if needed, e.g., Login #}
-          </ul>
-        </div>
-      </div>
-    </nav>
-    
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
