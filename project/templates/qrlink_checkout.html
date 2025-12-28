@@ -12,7 +12,14 @@
             <div class="card-body">
                 <div id="cart-items-container">
                     <!-- Cart items will be injected here by JS -->
-                    <p class="text-muted text-center">Your cart is empty.</p>
+                    <div class="text-center py-5 text-muted">
+                        <div style="font-size: 4rem; opacity: 0.5;">
+                            <i class="bi bi-egg-fried"></i>
+                        </div>
+                        <h5 class="mt-3">Your plate is empty!</h5>
+                        <p>Let's add something delicious.</p>
+                        <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, table=table.number if table else None, type=request.args.get('type')) }}" class="btn btn-primary mt-2">Add Food</a>
+                    </div>
                 </div>
             </div>
             <div class="card-footer bg-white border-0">
@@ -64,7 +71,12 @@
         let total = 0;
 
         if (Object.keys(cart).length === 0) {
-            container.innerHTML = '<p class="text-muted text-center">Your cart is empty.</p>';
+            container.innerHTML = `<div class="text-center py-5 text-muted">
+                                       <div style="font-size: 4rem; opacity: 0.5;"><i class="bi bi-egg-fried"></i></div>
+                                       <h5 class="mt-3">Your plate is empty!</h5>
+                                       <p>Let's add something delicious.</p>
+                                       <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, table=table.number if table else None, type=request.args.get('type')) }}" class="btn btn-primary mt-2">Add Food</a>
+                                   </div>`;
             checkoutButton.disabled = true;
         } else {
             checkoutButton.disabled = false;

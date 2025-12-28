@@ -2,10 +2,15 @@ from flask import Blueprint, render_template, request, jsonify, abort
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 
-from project.models import Restaurant, Table, Category, Order, OrderItem
+from project.models import Restaurant, Table, Category, Order, OrderItem, Menu
 from extensions import db, socketio
 
 qrlink_bp = Blueprint('qrlink', __name__, url_prefix='/qrlink')
+
+@qrlink_bp.route('/')
+def index():
+    """Generic landing for users who navigate to /qrlink/ directly."""
+    return render_template('qrlink_index.html')
 
 @qrlink_bp.route('/<slug>')
 def customer_view(slug):
@@ -25,8 +30,6 @@ def customer_menu(slug):
     categories = Category.query.filter(
         Category.restaurant_id == restaurant.id,
         Category.is_active == True
-    ).options(
-        joinedload(Category.items)
     ).order_by(Category.name).all()
 
     return render_template('qrlink_store.html', restaurant=restaurant, table=table, categories=categories)

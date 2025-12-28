@@ -7,6 +7,7 @@ import os
 from io import BytesIO
 from datetime import datetime
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu, ModifierGroup, ModifierOption, Station
 from extensions import db, socketio
@@ -138,20 +139,35 @@ def office_undo_delete_staff():
 @admin_bp.route('/menu/menu')
 @login_required
 def menu_manage_menu():
+    print(f"\n--- DEBUG: menu_manage_menu for user: {current_user.email} ---")
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
+    print(f"DEBUG: Restaurant: {restaurant.name}")
+
     items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    print(f"DEBUG: Found {len(items)} total menu items.")
+    for item in items:
+        category_names = [c.name for c in item.categories]
+        print(f"  - Item: '{item.name}' (ID: {item.id}), Available: {item.is_available}, Categories: {category_names}")
+
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    print(f"DEBUG: Found {len(categories)} total categories.")
+
     menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    print(f"DEBUG: Found {len(menus)} total menus.")
+
     stations = Station.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    print(f"DEBUG: Found {len(stations)} total stations.")
     
     selected_item = None
     item_id = request.args.get('item_id')
+    print(f"DEBUG: Requested item_id from URL: {item_id}")
     if item_id:
         selected_item = next((i for i in items if str(i.id) == str(item_id)), None)
     
     if not selected_item and items:
         selected_item = items[0]
 
+    print(f"DEBUG: Selected item for display: {selected_item.name if selected_item else 'None'}")
     return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item, categories=categories, menus=menus, stations=stations)
 
 @admin_bp.route('/menu/menu/add', methods=['POST'])

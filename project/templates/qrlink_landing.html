@@ -3,9 +3,13 @@
 {% block title %}{{ restaurant.name }} - Welcome{% endblock %}
 
 {% block content %}
-<div class="text-center p-4 bg-white rounded shadow-sm">
-    {% if restaurant.banner_data %}
+<div class="text-center p-4 bg-white rounded shadow-sm mt-4">
+    {% if restaurant.logo_data %}
+    <img src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}" class="rounded-circle shadow-sm mb-4" style="width: 120px; height: 120px; object-fit: cover;" alt="Logo">
+    {% elif restaurant.banner_data %}
     <img src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}" class="img-fluid rounded mb-4" alt="Banner">
+    {% else %}
+    <div class="mb-4 text-primary" style="font-size: 5rem;"><i class="bi bi-shop"></i></div>
     {% endif %}
     <h1 class="fw-bold">{{ restaurant.name }}</h1>
     <p class="lead text-muted">{{ restaurant.tagline }}</p>
