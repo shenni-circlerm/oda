@@ -1,0 +1,9 @@
+Hello,
+
+You have been invited to join the team. Please copy and paste the following link into your browser to set up your account:
+{{ url_for('auth.accept_invitation', token=token, _external=True) }}
+
+This link will expire in 7 days.
+
+Sincerely,
+The Team

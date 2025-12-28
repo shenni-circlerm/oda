@@ -9,14 +9,14 @@
         <div class="col-md-4 col-lg-3 border-end bg-white p-0" style="min-height: calc(100vh - 100px);">
             <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
                 <h5 class="fw-bold mb-0">Menu Items</h5>
-                <form action="{{ url_for('admin.add_menu_item') }}" method="POST" class="m-0">
+                <form action="{{ url_for('admin.menu_add_menu_item') }}" method="POST" class="m-0">
                     <input type="hidden" name="quick_add" value="true">
                     <button type="submit" class="btn btn-sm btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> New</button>
                 </form>
             </div>
             <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
                 {% for item in items %}
-                <a href="{{ url_for('admin.manage_menu', item_id=item.id) }}" 
+                <a href="{{ url_for('admin.menu_manage_menu', item_id=item.id) }}" 
                    class="list-group-item list-group-item-action py-3 border-0 {% if selected_item and selected_item.id == item.id %}bg-secondary bg-opacity-10{% endif %}">
                     <div class="d-flex justify-content-between align-items-start mb-1">
                         <span class="fw-bold text-truncate">{{ item.name }}</span>
@@ -63,7 +63,7 @@
                     </div>
                 </div>
                 <div class="card-body p-4 overflow-auto">
-                    <form action="{{ url_for('admin.edit_menu_item', item_id=selected_item.id) }}" method="POST" enctype="multipart/form-data">
+                    <form id="edit-item-form" action="{{ url_for('admin.menu_edit_menu_item', item_id=selected_item.id) }}" method="POST" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-4 mb-4">
                                 <div class="text-center">
@@ -179,7 +179,7 @@
                                         {% endif %}
                                     </span>
                                 </div>
-                                <form action="{{ url_for('admin.delete_modifier_group', group_id=group.id) }}" method="POST" onsubmit="return confirm('Delete this group and all its options?');">
+                                <form action="{{ url_for('admin.menu_delete_modifier_group', group_id=group.id) }}" method="POST" onsubmit="return confirm('Delete this group and all its options?');">
                                     <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-trash"></i></button>
                                 </form>
                             </div>
@@ -188,13 +188,13 @@
                                     {% for option in group.options %}
                                     <li class="list-group-item px-0 d-flex justify-content-between align-items-center border-bottom-0 py-1">
                                         <span>{{ option.name }} <span class="text-muted small">({{ "+$%.2f"|format(option.price_override) if option.price_override > 0 else "Free" }})</span></span>
-                                        <form action="{{ url_for('admin.delete_modifier_option', option_id=option.id) }}" method="POST">
+                                        <form action="{{ url_for('admin.menu_delete_modifier_option', option_id=option.id) }}" method="POST">
                                             <button type="submit" class="btn btn-sm btn-link text-muted p-0"><i class="bi bi-x-lg"></i></button>
                                         </form>
                                     </li>
                                     {% endfor %}
                                 </ul>
-                                <form action="{{ url_for('admin.add_modifier_option') }}" method="POST" class="d-flex gap-2">
+                                <form action="{{ url_for('admin.menu_add_modifier_option') }}" method="POST" class="d-flex gap-2">
                                     <input type="hidden" name="group_id" value="{{ group.id }}">
                                     <input type="text" name="name" class="form-control form-control-sm" placeholder="Option Name (e.g. 50% Sugar)" required>
                                     <input type="number" step="0.01" name="price" class="form-control form-control-sm" placeholder="Price (+)" style="max-width: 100px;">
@@ -223,7 +223,7 @@
                             <p class="text-muted">Are you sure you want to delete <strong>{{ selected_item.name }}</strong>? This action cannot be undone.</p>
                             <div class="d-flex justify-content-end gap-2 mt-4">
                                 <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
-                                <form action="{{ url_for('admin.delete_menu_item', item_id=selected_item.id) }}" method="POST">
+                                <form action="{{ url_for('admin.menu_delete_menu_item', item_id=selected_item.id) }}" method="POST">
                                     <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
                                 </form>
                             </div>
@@ -249,7 +249,7 @@
                 <h5 class="modal-title fw-bold">Add Category</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.categories') }}" method="POST">
+            <form action="{{ url_for('admin.menu_categories') }}" method="POST">
                 <input type="hidden" name="return_to" value="{{ request.url }}">
                 <div class="modal-body">
                     <div class="mb-3">
@@ -284,7 +284,7 @@
                 <h5 class="modal-title fw-bold">Add Option Group</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.add_modifier_group') }}" method="POST">
+            <form action="{{ url_for('admin.menu_add_modifier_group') }}" method="POST">
                 <input type="hidden" name="item_id" value="{{ selected_item.id }}">
                 <div class="modal-body">
                     <div class="mb-3">
@@ -340,17 +340,25 @@ function previewImage(input) {
 }
 
 function toggleItemStatus(itemId) {
-    fetch(`/admin/availability/toggle/${itemId}`, {
+    const form = document.getElementById('edit-item-form');
+    const isAvailableInput = form.querySelector('input[name="is_available"]');
+    const isCurrentlyAvailable = isAvailableInput.checked;
+
+    // Optimistically update the checkbox and submit the form
+    isAvailableInput.checked = !isCurrentlyAvailable;
+    form.submit();
+
+    // Also send a background request to ensure the toggle is registered
+    // This is a fallback and provides a faster perceived update
+    fetch(`/menu/availability/toggle/${itemId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
     })
     .then(response => {
-        if (response.ok) window.location.reload();
-        else alert('Failed to update status.');
+        if (!response.ok) console.error('Background status update failed.');
     })
     .catch(err => {
-        console.error(err);
-        alert('Network error.');
+        console.error('Network error on background status update:', err);
     });
 }
 

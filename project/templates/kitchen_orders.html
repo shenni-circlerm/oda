@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Kitchen Dashboard{% endblock %}
+{% block title %}Kitchen Orders{% endblock %}
 
 {% block styles %}
 <style>
@@ -133,7 +133,7 @@
 {% block scripts %}
 <script>
 function markItemStatus(itemId, status) {
-    fetch(`/admin/order-item/status/${itemId}`, {
+    fetch(`/storefront/order-item/status/${itemId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: status })
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 this.appendChild(draggedItem);
 
                 // Send the update to the backend
-                fetch(`/admin/item/${menuItemId}/assign-station`, {
+                fetch(`/kitchen/item/${menuItemId}/assign-station`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ station_id: newStationId })

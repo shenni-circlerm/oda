@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from flask_migrate import Migrate
-from extensions import db, socketio, login_manager
+from extensions import db, socketio, login_manager, mail
 from project.models import User
 from config import config
 
@@ -17,6 +17,7 @@ def create_app(config_name='default'):
     db.init_app(app)
     socketio.init_app(app)
     login_manager.init_app(app)
+    mail.init_app(app)
     login_manager.login_view = 'auth.login'
     Migrate(app, db)
 
@@ -24,7 +25,7 @@ def create_app(config_name='default'):
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    from routes.admin_routes import admin_bp
+    from routes.routes import admin_bp
     from routes.customer_routes import customer_bp
     from routes.super_admin_routes import super_admin_bp
     from routes.admin_analytics import analytics_bp

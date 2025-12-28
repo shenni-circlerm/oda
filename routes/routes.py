@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu, ModifierGroup, ModifierOption, Station
 from extensions import db, socketio
+from .email import send_email
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -28,9 +29,9 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@admin_bp.route('/admin/dashboard')
+@admin_bp.route('/kitchen/orders')
 @login_required
-def staff_dashboard():
+def kitchen_orders():
     stations = Station.query.filter_by(restaurant_id=current_user.restaurant_id).order_by(Station.name).all()
     
     # Get all active order items that are not ready
@@ -51,40 +52,84 @@ def staff_dashboard():
         else:
             uncategorized_items.append(item)
 
-    return render_template('kitchen_dashboard.html', stations=stations, station_items=station_items, uncategorized_items=uncategorized_items)
+    return render_template('kitchen_orders.html', stations=stations, station_items=station_items, uncategorized_items=uncategorized_items)
 
-@admin_bp.route('/admin/users')
+@admin_bp.route('/office/users')
 @login_required
 @admin_required
-def manage_users():
+def office_users():
     staff = User.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     return render_template('office_staff.html', staff=staff)
 
-@admin_bp.route('/admin/invite-staff', methods=['POST'])
+@admin_bp.route('/office/invite-staff', methods=['POST'])
 @login_required
 @admin_required
-def invite_staff():
+def office_invite_staff():
     email = request.form.get('email')
     role = request.form.get('role')
     
     if User.query.filter_by(email=email).first():
         flash("User already registered.")
-        return redirect(url_for('admin.manage_users'))
+        return redirect(url_for('admin.office_users'))
 
+    # Create inactive user without a password
     new_user = User(
         email=email,
-        password=generate_password_hash("temporary123"),
         role=role,
-        restaurant_id=current_user.restaurant_id
+        restaurant_id=current_user.restaurant_id,
+        is_active=False
     )
     db.session.add(new_user)
     db.session.commit()
-    flash(f"New {role} added successfully!")
-    return redirect(url_for('admin.manage_users'))
 
-@admin_bp.route('/admin/menu')
+    # Send invitation email
+    token = new_user.get_token(salt='staff-invitation', expires_sec=604800) # 7 days
+    send_email(email, 'You are invited to join!', 'email/invite', user=new_user, token=token)
+
+    flash(f"An invitation has been sent to {email}.")
+    return redirect(url_for('admin.office_users'))
+
+@admin_bp.route('/office/staff/delete/<int:user_id>', methods=['POST'])
 @login_required
-def manage_menu():
+@admin_required
+def office_delete_staff(user_id):
+    user_to_delete = User.query.filter_by(id=user_id, restaurant_id=current_user.restaurant_id).first_or_404()
+
+    # Prevent deleting oneself or the restaurant owner
+    if user_to_delete.id == current_user.id:
+        flash("You cannot delete yourself.", "danger")
+        return redirect(url_for('admin.office_users'))
+
+    # Store for undo
+    session['last_deleted_staff'] = {
+        'email': user_to_delete.email,
+        'role': user_to_delete.role,
+        'restaurant_id': user_to_delete.restaurant_id,
+        'is_active': user_to_delete.is_active
+    }
+
+    db.session.delete(user_to_delete)
+    db.session.commit()
+
+    undo_url = url_for('admin.office_undo_delete_staff')
+    flash(f"Staff member {user_to_delete.email} has been deleted. <a href='{undo_url}' class='fw-bold'>Undo</a>")
+    return redirect(url_for('admin.office_users'))
+
+@admin_bp.route('/office/staff/undo_delete', methods=['GET'])
+@login_required
+@admin_required
+def office_undo_delete_staff():
+    last_deleted = session.pop('last_deleted_staff', None)
+    if last_deleted:
+        restored_user = User(**last_deleted)
+        db.session.add(restored_user)
+        db.session.commit()
+        flash(f"Staff member {last_deleted['email']} has been restored.")
+    return redirect(url_for('admin.office_users'))
+
+@admin_bp.route('/menu/menu')
+@login_required
+def menu_manage_menu():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
@@ -101,9 +146,9 @@ def manage_menu():
 
     return render_template('menu_items.html', items=items, restaurant=restaurant, selected_item=selected_item, categories=categories, menus=menus, stations=stations)
 
-@admin_bp.route('/admin/menu/add', methods=['POST'])
+@admin_bp.route('/menu/menu/add', methods=['POST'])
 @login_required
-def add_menu_item():
+def menu_add_menu_item():
     if request.form.get('quick_add'):
         category_id = request.form.get('category_id')
         count = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).count()
@@ -122,7 +167,7 @@ def add_menu_item():
                 
         db.session.add(new_item)
         db.session.commit()
-        return redirect(url_for('admin.manage_menu', item_id=new_item.id))
+        return redirect(url_for('admin.menu_manage_menu', item_id=new_item.id))
 
     name = request.form.get('name')
     sku = request.form.get('sku')
@@ -153,12 +198,12 @@ def add_menu_item():
     db.session.add(new_item)
     db.session.commit()
     flash("Item added successfully!")
-    return redirect(url_for('admin.manage_menu'))
+    return redirect(url_for('admin.menu_manage_menu'))
 
-@admin_bp.route('/admin/menu/edit/<int:item_id>', methods=['GET', 'POST'])
+@admin_bp.route('/menu/menu/edit/<int:item_id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def edit_menu_item(item_id):
+def menu_edit_menu_item(item_id):
     item = MenuItem.query.filter_by(id=item_id, restaurant_id=current_user.restaurant_id).first_or_404()
 
     if request.method == 'POST':
@@ -185,23 +230,23 @@ def edit_menu_item(item_id):
 
         db.session.commit()
         flash("Menu item updated!")
-        return redirect(url_for('admin.manage_menu', item_id=item.id))
+        return redirect(url_for('admin.menu_manage_menu', item_id=item.id))
 
-    return redirect(url_for('admin.manage_menu', item_id=item_id))
+    return redirect(url_for('admin.menu_manage_menu', item_id=item_id))
 
-@admin_bp.route('/admin/menu/delete/<int:item_id>', methods=['POST'])
+@admin_bp.route('/menu/menu/delete/<int:item_id>', methods=['POST'])
 @login_required
 @admin_required
-def delete_menu_item(item_id):
+def menu_delete_menu_item(item_id):
     item = MenuItem.query.filter_by(id=item_id, restaurant_id=current_user.restaurant_id).first_or_404()
     db.session.delete(item)
     db.session.commit()
     flash("Menu item deleted.")
-    return redirect(url_for('admin.manage_menu'))
+    return redirect(url_for('admin.menu_manage_menu'))
 
-@admin_bp.route('/admin/menu/modifier/group/add', methods=['POST'])
+@admin_bp.route('/menu/menu/modifier/group/add', methods=['POST'])
 @login_required
-def add_modifier_group():
+def menu_add_modifier_group():
     item_id = request.form.get('item_id')
     name = request.form.get('name')
     selection_type = request.form.get('selection_type') # single, multiple
@@ -222,22 +267,22 @@ def add_modifier_group():
         db.session.commit()
         flash("Modifier group added.")
         
-    return redirect(url_for('admin.manage_menu', item_id=item_id))
+    return redirect(url_for('admin.menu_manage_menu', item_id=item_id))
 
-@admin_bp.route('/admin/menu/modifier/group/delete/<int:group_id>', methods=['POST'])
+@admin_bp.route('/menu/menu/modifier/group/delete/<int:group_id>', methods=['POST'])
 @login_required
-def delete_modifier_group(group_id):
+def menu_delete_modifier_group(group_id):
     group = db.session.get(ModifierGroup, group_id)
     item_id = group.menu_item_id
     if group:
         db.session.delete(group)
         db.session.commit()
         flash("Modifier group deleted.")
-    return redirect(url_for('admin.manage_menu', item_id=item_id))
+    return redirect(url_for('admin.menu_manage_menu', item_id=item_id))
 
-@admin_bp.route('/admin/menu/modifier/option/add', methods=['POST'])
+@admin_bp.route('/menu/menu/modifier/option/add', methods=['POST'])
 @login_required
-def add_modifier_option():
+def menu_add_modifier_option():
     group_id = request.form.get('group_id')
     name = request.form.get('name')
     price = request.form.get('price', 0.0)
@@ -252,24 +297,24 @@ def add_modifier_option():
         db.session.add(option)
         db.session.commit()
         flash("Option added.")
-        return redirect(url_for('admin.manage_menu', item_id=group.menu_item_id))
-    return redirect(url_for('admin.manage_menu'))
+        return redirect(url_for('admin.menu_manage_menu', item_id=group.menu_item_id))
+    return redirect(url_for('admin.menu_manage_menu'))
 
-@admin_bp.route('/admin/menu/modifier/option/delete/<int:option_id>', methods=['POST'])
+@admin_bp.route('/menu/menu/modifier/option/delete/<int:option_id>', methods=['POST'])
 @login_required
-def delete_modifier_option(option_id):
+def menu_delete_modifier_option(option_id):
     option = db.session.get(ModifierOption, option_id)
     if option:
         group = option.group
         db.session.delete(option)
         db.session.commit()
         flash("Option deleted.")
-        return redirect(url_for('admin.manage_menu', item_id=group.menu_item_id))
-    return redirect(url_for('admin.manage_menu'))
+        return redirect(url_for('admin.menu_manage_menu', item_id=group.menu_item_id))
+    return redirect(url_for('admin.menu_manage_menu'))
 
-@admin_bp.route('/admin/order-item/status/<int:item_id>', methods=['POST'])
+@admin_bp.route('/storefront/order-item/status/<int:item_id>', methods=['POST'])
 @login_required
-def update_order_item_status(item_id):
+def storefront_update_order_item_status(item_id):
     item = db.session.get(OrderItem, item_id)
     if item and item.order.restaurant_id == current_user.restaurant_id:
         new_status = request.json.get('status')
@@ -287,9 +332,9 @@ def update_order_item_status(item_id):
             return jsonify({'success': True, 'item_id': item.id, 'new_status': new_status})
     return jsonify({'success': False}), 403
 
-@admin_bp.route('/admin/item/<int:item_id>/assign-station', methods=['POST'])
+@admin_bp.route('/kitchen/item/<int:item_id>/assign-station', methods=['POST'])
 @login_required
-def assign_item_to_station(item_id):
+def kitchen_assign_item_to_station(item_id):
     menu_item = db.session.get(MenuItem, item_id)
     station_id = request.json.get('station_id')
 
@@ -301,9 +346,9 @@ def assign_item_to_station(item_id):
 
     return jsonify({'success': False, 'message': 'Item or station not found.'}), 404
 
-@admin_bp.route('/admin/order/<int:order_id>/update', methods=['POST'])
+@admin_bp.route('/kitchen/order/<int:order_id>/update', methods=['POST'])
 @login_required
-def update_order_status(order_id):
+def kitchen_update_order_status(order_id):
     order = Order.query.filter_by(id=order_id, restaurant_id=current_user.restaurant_id).first_or_404()
     new_status = request.json.get('status')
     order.status = new_status
@@ -339,9 +384,9 @@ def serve_restaurant_image(restaurant_id, image_type):
         return send_file(BytesIO(data), mimetype=mimetype)
     return redirect(url_for('static', filename='img/placeholder.png'))
 
-@admin_bp.route('/admin/tables')
+@admin_bp.route('/kitchen/tables')
 @login_required
-def tables():
+def kitchen_tables():
     tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
 
@@ -374,10 +419,9 @@ def tables():
 
     return render_template('kitchen_tables.html', tables=tables, table_status=table_status)
 
-@admin_bp.route('/admin/stations', methods=['GET', 'POST'])
+@admin_bp.route('/kitchen/stations', methods=['GET', 'POST'])
 @login_required
-@admin_required
-def manage_stations():
+def kitchen_manage_stations():
     if request.method == 'POST':
         name = request.form.get('name')
         if name:
@@ -385,49 +429,48 @@ def manage_stations():
             db.session.add(new_station)
             db.session.commit()
             flash('Station created.')
-        return redirect(url_for('admin.manage_stations'))
+        return redirect(url_for('admin.kitchen_manage_stations'))
     
     stations = Station.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     return render_template('kitchen_stations.html', stations=stations)
 
-@admin_bp.route('/admin/stations/delete/<int:station_id>', methods=['POST'])
+@admin_bp.route('/kitchen/stations/delete/<int:station_id>', methods=['POST'])
 @login_required
-@admin_required
-def delete_station(station_id):
+def kitchen_delete_station(station_id):
     station = Station.query.filter_by(id=station_id, restaurant_id=current_user.restaurant_id).first_or_404()
     db.session.delete(station)
     db.session.commit()
     flash('Station deleted.')
-    return redirect(url_for('admin.manage_stations'))
+    return redirect(url_for('admin.kitchen_manage_stations'))
 
-@admin_bp.route('/admin/completed')
+@admin_bp.route('/office/completed')
 @login_required
 def completed():
     return render_template('base.html', content="Completed Orders - Coming Soon")
 
-@admin_bp.route('/admin/history')
+@admin_bp.route('/office/history')
 @login_required
 def history():
-    return render_template('base.html', content="Order History - Coming Soon")
+    return render_template('office_history.html')
 
-@admin_bp.route('/admin/payments')
+@admin_bp.route('/office/payments')
 @login_required
 def payments():
-    return render_template('base.html', content="Payments - Coming Soon")
+    return render_template('office_payments.html')
 
-@admin_bp.route('/admin/walkin')
+@admin_bp.route('/storefront/walkin')
 @login_required
-def walkin():
+def storefront_walkin():
     return render_template('base.html', content="Walk-in Orders - Coming Soon")
 
-@admin_bp.route('/admin/print-receipt')
+@admin_bp.route('/storefront/print-receipt')
 @login_required
-def print_receipt():
+def storefront_print_receipt():
     return render_template('base.html', content="Print Receipt - Coming Soon")
 
-@admin_bp.route('/admin/menus', methods=['GET', 'POST'])
+@admin_bp.route('/menu/menus', methods=['GET', 'POST'])
 @login_required
-def menus():
+def menu_menus():
     if request.method == 'POST':
         menu_id = request.form.get('menu_id')
         name = request.form.get('name')
@@ -456,14 +499,14 @@ def menus():
             menu.is_active = 'is_active' in request.form
             db.session.commit()
             flash('Menu updated.')
-            return redirect(url_for('admin.menus', menu_id=menu.id))
+            return redirect(url_for('admin.menu_menus', menu_id=menu.id))
         elif name:
             # Create new menu
             new_menu = Menu(name=name, description=description, restaurant_id=current_user.restaurant_id, start_time=start_time, end_time=end_time, start_date=start_date, end_date=end_date)
             db.session.add(new_menu)
             db.session.commit()
             flash('Menu created successfully.')
-            return redirect(url_for('admin.menus', menu_id=new_menu.id))
+            return redirect(url_for('admin.menu_menus', menu_id=new_menu.id))
         
     menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     
@@ -477,18 +520,18 @@ def menus():
         
     return render_template('menus.html', menus=menus, selected_menu=selected_menu)
 
-@admin_bp.route('/admin/menus/delete/<int:menu_id>', methods=['POST'])
+@admin_bp.route('/menu/menus/delete/<int:menu_id>', methods=['POST'])
 @login_required
-def delete_menu(menu_id):
+def menu_delete_menu(menu_id):
     menu = Menu.query.filter_by(id=menu_id, restaurant_id=current_user.restaurant_id).first_or_404()
     db.session.delete(menu)
     db.session.commit()
     flash('Menu deleted.')
-    return redirect(url_for('admin.menus'))
+    return redirect(url_for('admin.menu_menus'))
 
-@admin_bp.route('/admin/categories', methods=['GET', 'POST'])
+@admin_bp.route('/menu/categories', methods=['GET', 'POST'])
 @login_required
-def categories():
+def menu_categories():
     if request.method == 'POST':
         name = request.form.get('name')
         menu_ids = request.form.getlist('menu_ids')
@@ -508,13 +551,13 @@ def categories():
                 return redirect(return_to)
             
             # Otherwise go to the new category in the list
-            return redirect(url_for('admin.categories', category_id=new_category.id))
+            return redirect(url_for('admin.menu_categories', category_id=new_category.id))
         
         return_to = request.form.get('return_to')
         if return_to:
             return redirect(return_to)
             
-        return redirect(url_for('admin.categories'))
+        return redirect(url_for('admin.menu_categories'))
         
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
@@ -530,9 +573,9 @@ def categories():
         
     return render_template('menu_categories.html', categories=categories, menus=menus, selected_category=selected_category, all_items=all_items)
 
-@admin_bp.route('/admin/categories/edit/<int:category_id>', methods=['POST'])
+@admin_bp.route('/menu/categories/edit/<int:category_id>', methods=['POST'])
 @login_required
-def edit_category(category_id):
+def menu_edit_category(category_id):
     category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
     name = request.form.get('name')
     menu_ids = request.form.getlist('menu_ids')
@@ -545,16 +588,16 @@ def edit_category(category_id):
                 category.menus.append(menu)
         db.session.commit()
         flash('Category updated.')
-    return redirect(url_for('admin.categories', category_id=category.id))
+    return redirect(url_for('admin.menu_categories', category_id=category.id))
 
-@admin_bp.route('/admin/categories/add_item', methods=['POST'])
+@admin_bp.route('/menu/categories/add_item', methods=['POST'])
 @login_required
-def add_item_to_category():
+def menu_add_item_to_category():
     category_id = request.form.get('category_id')
     item_name = request.form.get('item_name')
     
     if not category_id or not item_name:
-        return redirect(url_for('admin.categories'))
+        return redirect(url_for('admin.menu_categories'))
 
     category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
     
@@ -578,11 +621,11 @@ def add_item_to_category():
         db.session.commit()
         flash(f'Item "{item.name}" added to category.')
     
-    return redirect(url_for('admin.categories', category_id=category_id))
+    return redirect(url_for('admin.menu_categories', category_id=category_id))
 
-@admin_bp.route('/admin/categories/remove_item/<int:category_id>/<int:item_id>', methods=['POST'])
+@admin_bp.route('/menu/categories/remove_item/<int:category_id>/<int:item_id>', methods=['POST'])
 @login_required
-def remove_item_from_category(category_id, item_id):
+def menu_remove_item_from_category(category_id, item_id):
     category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
     item = MenuItem.query.filter_by(id=item_id, restaurant_id=current_user.restaurant_id).first_or_404()
     
@@ -596,14 +639,14 @@ def remove_item_from_category(category_id, item_id):
             'category_id': category.id
         }
         
-        undo_url = url_for('admin.undo_remove_item_from_category')
+        undo_url = url_for('admin.menu_undo_remove_item_from_category')
         flash(f'Item removed from category. <a href="{undo_url}" class="fw-bold text-decoration-underline">Undo</a>')
         
-    return redirect(url_for('admin.categories', category_id=category_id))
+    return redirect(url_for('admin.menu_categories', category_id=category_id))
 
-@admin_bp.route('/admin/categories/undo_remove_item', methods=['GET'])
+@admin_bp.route('/menu/categories/undo_remove_item', methods=['GET'])
 @login_required
-def undo_remove_item_from_category():
+def menu_undo_remove_item_from_category():
     data = session.get('last_removed_item_category')
     if data:
         item = MenuItem.query.filter_by(id=data['item_id'], restaurant_id=current_user.restaurant_id).first()
@@ -614,14 +657,14 @@ def undo_remove_item_from_category():
             db.session.commit()
             flash('Item restored to category.')
             session.pop('last_removed_item_category', None)
-            return redirect(url_for('admin.categories', category_id=category.id))
+            return redirect(url_for('admin.menu_categories', category_id=category.id))
             
     flash('Nothing to undo.')
-    return redirect(url_for('admin.categories'))
+    return redirect(url_for('admin.menu_categories'))
 
-@admin_bp.route('/admin/categories/delete/<int:category_id>', methods=['POST'])
+@admin_bp.route('/menu/categories/delete/<int:category_id>', methods=['POST'])
 @login_required
-def delete_category(category_id):
+def menu_delete_category(category_id):
     category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
     # Optional: Check if items exist before deleting, or set them to null
     # For now, we'll just delete the category. Items will have category_id set to NULL automatically if not cascaded, 
@@ -629,7 +672,7 @@ def delete_category(category_id):
     db.session.delete(category)
     db.session.commit()
     flash('Category deleted.')
-    return redirect(url_for('admin.categories'))
+    return redirect(url_for('admin.menu_categories'))
 
 @admin_bp.route('/admin/categories/toggle/<int:category_id>', methods=['POST'])
 @login_required
@@ -639,24 +682,24 @@ def toggle_category_status(category_id):
     db.session.commit()
     return {"success": True, "new_status": category.is_active}, 200
 
-@admin_bp.route('/admin/availability')
+@admin_bp.route('/menu/availability')
 @login_required
-def availability():
+def menu_availability():
     categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     uncategorized_items = MenuItem.query.filter_by(restaurant_id=current_user.restaurant_id).filter(~MenuItem.categories.any()).all()
     return render_template('menu_availability.html', categories=categories, uncategorized_items=uncategorized_items)
 
-@admin_bp.route('/admin/availability/toggle/<int:item_id>', methods=['POST'])
+@admin_bp.route('/menu/availability/toggle/<int:item_id>', methods=['POST'])
 @login_required
-def toggle_availability(item_id):
+def menu_toggle_availability(item_id):
     item = MenuItem.query.filter_by(id=item_id, restaurant_id=current_user.restaurant_id).first_or_404()
     item.is_available = not item.is_available
     db.session.commit()
     return {"success": True, "new_status": item.is_available}, 200
 
-@admin_bp.route('/admin/branding', methods=['GET', 'POST'])
+@admin_bp.route('/design/branding', methods=['GET', 'POST'])
 @login_required
-def branding():
+def design_branding():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     
     if request.method == 'POST':
@@ -676,13 +719,13 @@ def branding():
             
         db.session.commit()
         flash('Branding updated successfully.')
-        return redirect(url_for('admin.branding'))
+        return redirect(url_for('admin.design_branding'))
         
     return render_template('design_branding.html', restaurant=restaurant)
 
-@admin_bp.route('/admin/menu-design', methods=['GET', 'POST'])
+@admin_bp.route('/design/menu', methods=['GET', 'POST'])
 @login_required
-def menu_design():
+def design_menu_design():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     
     # Default config structure
@@ -761,13 +804,13 @@ def menu_design():
         flag_modified(restaurant, "pages_config")
         db.session.commit()
         flash("Store design updated.")
-        return redirect(url_for('admin.menu_design'))
+        return redirect(url_for('admin.design_menu_design'))
 
     return render_template('design_pages.html', config=config)
 
-@admin_bp.route('/admin/qr-design', methods=['GET', 'POST'])
+@admin_bp.route('/design/qr-design', methods=['GET', 'POST'])
 @login_required
-def qr_design():
+def design_qr_design():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     
     default_config = {
@@ -785,11 +828,11 @@ def qr_design():
         flag_modified(restaurant, "qr_config")
         db.session.commit()
         flash("QR Design updated.")
-        return redirect(url_for('admin.qr_design'))
+        return redirect(url_for('admin.design_qr_design'))
         
     return render_template('design_qr.html', config=config)
 
-@admin_bp.route('/admin/storefront/tables', methods=['GET', 'POST'])
+@admin_bp.route('/storefront/tables', methods=['GET', 'POST'])
 @login_required
 def storefront_tables():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
@@ -946,9 +989,9 @@ def storefront_tables():
     
     return render_template('storefront_tables.html', tables=tables, restaurant=restaurant, selected_table=selected_table, table_data=table_data)
 
-@admin_bp.route('/admin/storefront/tables/delete/<int:table_id>', methods=['POST'])
+@admin_bp.route('/storefront/tables/delete/<int:table_id>', methods=['POST'])
 @login_required
-def delete_table(table_id):
+def storefront_delete_table(table_id):
     table = Table.query.filter_by(id=table_id, restaurant_id=current_user.restaurant_id).first_or_404()
     
     # Determine next table to highlight
@@ -986,9 +1029,9 @@ def delete_table(table_id):
         return redirect(url_for('admin.storefront_tables', table_id=next_id))
     return redirect(url_for('admin.storefront_tables'))
 
-@admin_bp.route('/admin/storefront/tables/undo', methods=['GET'])
+@admin_bp.route('/storefront/tables/undo', methods=['GET'])
 @login_required
-def undo_delete_table():
+def storefront_undo_delete_table():
     data = session.get('last_deleted_table')
     if data:
         # Check if table number is still available (simple check)
@@ -1019,9 +1062,9 @@ def undo_delete_table():
     flash("Nothing to undo.")
     return redirect(url_for('admin.storefront_tables'))
 
-@admin_bp.route('/admin/storefront/tables/<int:table_id>/status', methods=['POST'])
+@admin_bp.route('/storefront/tables/<int:table_id>/status', methods=['POST'])
 @login_required
-def set_table_status(table_id):
+def storefront_set_table_status(table_id):
     table = Table.query.filter_by(id=table_id, restaurant_id=current_user.restaurant_id).first_or_404()
     new_status = request.form.get('status')
     
@@ -1034,7 +1077,7 @@ def set_table_status(table_id):
         
     return redirect(url_for('admin.storefront_tables', table_id=table.id))
 
-@admin_bp.route('/admin/storefront/orders', methods=['GET', 'POST'])
+@admin_bp.route('/storefront/orders', methods=['GET', 'POST'])
 @login_required
 def storefront_orders():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
@@ -1185,7 +1228,7 @@ def storefront_orders():
 
     return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables)
 
-@admin_bp.route('/admin/storefront/payment/<int:order_id>', methods=['GET', 'POST'])
+@admin_bp.route('/storefront/payment/<int:order_id>', methods=['GET', 'POST'])
 @login_required
 def storefront_payment(order_id):
 

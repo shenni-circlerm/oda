@@ -15,7 +15,7 @@
             </div>
             <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
                 {% for menu in menus %}
-                <a href="{{ url_for('admin.menus', menu_id=menu.id) }}" 
+                <a href="{{ url_for('admin.menu_menus', menu_id=menu.id) }}" 
                    class="list-group-item list-group-item-action py-3 border-0 {% if selected_menu and selected_menu.id == menu.id %}bg-secondary bg-opacity-10{% endif %}">
                     <div class="d-flex justify-content-between align-items-start mb-1">
                         <span class="fw-bold">{{ menu.name }}</span>
@@ -56,7 +56,7 @@
                     </div>
                 </div>
                 <div class="card-body p-4 overflow-auto">
-                    <form action="{{ url_for('admin.menus') }}" method="POST">
+                    <form action="{{ url_for('admin.menu_menus') }}" method="POST">
                         <input type="hidden" name="menu_id" value="{{ selected_menu.id }}">
                         
                         <!-- Basic Info -->
@@ -130,7 +130,7 @@
                                     <span class="badge bg-light text-dark ms-2">{{ category.items|length }} items</span>
                                 </button>
                             </h2>
-                            <div id="cat{{ category.id }}" class="accordion-collapse collapse" data-bs-parent="#menuCategories">
+                            <div id="cat{{ category.id }}" class="accordion-collapse collapse show" data-bs-parent="#menuCategories">
                                 <div class="accordion-body p-0">
                                     <ul class="list-group list-group-flush">
                                         {% for item in category.items %}
@@ -140,7 +140,7 @@
                                         </li>
                                         {% endfor %}
                                         <li class="list-group-item ps-4 border-0 bg-light">
-                                            <a href="{{ url_for('admin.manage_menu') }}" class="text-decoration-none small text-primary">
+                                            <a href="{{ url_for('admin.menu_manage_menu') }}" class="text-decoration-none small text-primary">
                                                 <i class="bi bi-pencil me-1"></i> Manage Items in Menu Items View
                                             </a>
                                         </li>
@@ -175,7 +175,7 @@
                 <h5 class="modal-title fw-bold">New Menu</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.menus') }}" method="POST">
+            <form action="{{ url_for('admin.menu_menus') }}" method="POST">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Menu Name</label>
@@ -198,7 +198,7 @@
                 <h5 class="modal-title fw-bold">Add Category</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.categories') }}" method="POST">
+            <form action="{{ url_for('admin.menu_categories') }}" method="POST">
                 {% if selected_menu %}
                 <input type="hidden" name="menu_id" value="{{ selected_menu.id }}">
                 {% endif %}
@@ -216,4 +216,27 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Menu Modal -->
+{% if selected_menu %}
+<div class="modal fade" id="deleteMenuModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Delete Menu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Are you sure you want to delete <strong>{{ selected_menu.name }}</strong>? This action cannot be undone.</p>
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('admin.menu_delete_menu', menu_id=selected_menu.id) }}" method="POST">
+                        <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

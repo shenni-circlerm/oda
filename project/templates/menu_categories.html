@@ -15,7 +15,7 @@
             </div>
             <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
                 {% for category in categories %}
-                <a href="{{ url_for('admin.categories', category_id=category.id) }}" 
+                <a href="{{ url_for('admin.menu_categories', category_id=category.id) }}" 
                    class="list-group-item list-group-item-action py-3 border-0 {% if selected_category and selected_category.id == category.id %}bg-secondary bg-opacity-10{% endif %}">
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold {{ 'text-muted text-decoration-line-through' if not category.is_active }}">{{ category.name }}</span>
@@ -51,7 +51,7 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
                             <li>
-                                <button class="dropdown-item" onclick="document.getElementById('activeSwitch').click()">
+                                <button class="dropdown-item" onclick="toggleCategory({{ selected_category.id }})">
                                     <i class="bi bi-toggle-{{ 'on text-success' if selected_category.is_active else 'off text-muted' }} me-2"></i>
                                     {{ 'Disable' if selected_category.is_active else 'Enable' }}
                                 </button>
@@ -62,7 +62,7 @@
                     </div>
                 </div>
                 <div class="card-body p-4 overflow-auto">
-                    <form action="{{ url_for('admin.edit_category', category_id=selected_category.id) }}" method="POST">
+                    <form action="{{ url_for('admin.menu_edit_category', category_id=selected_category.id) }}" method="POST">
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <label class="form-label">Category Name</label>
@@ -96,7 +96,7 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold mb-0">Items in Category</h5>
-                        <form action="{{ url_for('admin.add_item_to_category') }}" method="POST" class="d-flex gap-2 align-items-center" style="max-width: 300px;">
+                        <form action="{{ url_for('admin.menu_add_item_to_category') }}" method="POST" class="d-flex gap-2 align-items-center" style="max-width: 300px;">
                             <input type="hidden" name="category_id" value="{{ selected_category.id }}">
                             <input type="text" name="item_name" list="item-suggestions" class="form-control form-control-sm rounded-pill" placeholder="Type to add item..." autocomplete="off" required>
                             <datalist id="item-suggestions">
@@ -114,7 +114,7 @@
                             <div class="d-flex align-items-start">
                                 <img src="{{ url_for('admin.serve_menu_image', item_id=item.id) }}" class="rounded bg-white me-3" style="width: 48px; height: 48px; object-fit: cover;">
                                 <div>
-                                    <a href="{{ url_for('admin.manage_menu', item_id=item.id) }}" class="fw-bold text-decoration-none text-dark">{{ item.name }}</a>
+                                    <a href="{{ url_for('admin.menu_manage_menu', item_id=item.id) }}" class="fw-bold text-decoration-none text-dark">{{ item.name }}</a>
                                     <div class="small text-muted">
                                         {% if item.sku %}<span class="me-2">{{ item.sku }}</span>{% endif %}
                                         ${{ "%.2f"|format(item.price) }}
@@ -124,7 +124,7 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <form action="{{ url_for('admin.remove_item_from_category', category_id=selected_category.id, item_id=item.id) }}" method="POST">
+                            <form action="{{ url_for('admin.menu_remove_item_from_category', category_id=selected_category.id, item_id=item.id) }}" method="POST">
                                 <button type="submit" class="btn btn-sm btn-link text-danger p-0" title="Remove from category">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
@@ -152,7 +152,7 @@
                             <p class="text-muted">Are you sure you want to delete <strong>{{ selected_category.name }}</strong>? Items will be unassigned.</p>
                             <div class="d-flex justify-content-end gap-2 mt-4">
                                 <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
-                                <form action="{{ url_for('admin.delete_category', category_id=selected_category.id) }}" method="POST">
+                                <form action="{{ url_for('admin.menu_delete_category', category_id=selected_category.id) }}" method="POST">
                                     <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
                                 </form>
                             </div>
@@ -178,7 +178,7 @@
                 <h5 class="modal-title fw-bold">Add New Category</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.categories') }}" method="POST">
+            <form action="{{ url_for('admin.menu_categories') }}" method="POST">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Category Name</label>
@@ -206,21 +206,20 @@
 </div>
 
 <script>
-function toggleCategory(categoryId, checkbox) {
+function toggleCategory(categoryId) {
     fetch(`/admin/categories/toggle/${categoryId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
     })
     .then(response => {
-        if (!response.ok) {
-            // Revert
-            checkbox.checked = !checkbox.checked;
+        if (response.ok) {
+            window.location.reload();
+        } else {
             alert('Failed to update status.');
         }
     })
     .catch(err => {
         console.error(err);
-        checkbox.checked = !checkbox.checked;
         alert('Network error.');
     });
 }

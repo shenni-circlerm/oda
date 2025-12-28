@@ -11,25 +11,29 @@
     {% block styles %}{% endblock %}
   </head>
   <body>
-    {% if current_user.is_authenticated and current_user.is_admin() %}
+    {% if current_user.is_authenticated %}
     <!-- Admin Layout Start -->
     <div class="bg-primary text-white text-center py-2 shadow-sm d-flex justify-content-center align-items-center" style="position: sticky; top: 0; z-index: 1050;">
         <!-- View Switcher Dropdown -->
-        <div class="dropdown">
-            <button class="btn btn-link text-white text-decoration-none fw-bold text-uppercase dropdown-toggle p-0 border-0" type="button" id="viewDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                {{ sidebar_menu.label }}
-            </button>
-            <ul class="dropdown-menu shadow mt-2" aria-labelledby="viewDropdown">
-                {% for view_key, view_data in MENU_STRUCTURE.items() %}
-                <li>
-                    <button class="dropdown-item d-flex justify-content-between align-items-center {% if view_key == current_view %}active{% endif %}" onclick="switchView('{{ view_key }}')">
-                        {{ view_data.label }}
-                        {% if view_key == current_view %}<i class="bi bi-check"></i>{% endif %}
-                    </button>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
+        {% if available_views|length > 1 %}
+            <div class="dropdown">
+                <button class="btn btn-link text-white text-decoration-none fw-bold text-uppercase dropdown-toggle p-0 border-0" type="button" id="viewDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    {{ sidebar_menu.label }}
+                </button>
+                <ul class="dropdown-menu shadow mt-2" aria-labelledby="viewDropdown">
+                    {% for view_key in available_views %}
+                    <li>
+                        <button class="dropdown-item d-flex justify-content-between align-items-center {% if view_key == current_view %}active{% endif %}" onclick="switchView('{{ view_key }}')">
+                            {{ MENU_STRUCTURE[view_key].label }}
+                            {% if view_key == current_view %}<i class="bi bi-check"></i>{% endif %}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% else %}
+            <span class="text-white fw-bold text-uppercase p-0 border-0">{{ sidebar_menu.label }}</span>
+        {% endif %}
         <span class="mx-2 opacity-75">|</span>
         <span class="small opacity-90">{{ sidebar_menu.description }}</span>
     </div>

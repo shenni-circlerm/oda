@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Staff Invitation</title>
+</head>
+<body>
+    <h2>Welcome!</h2>
+    <p>You have been invited by the administrator to join Oda as <strong>{{ user.email }}</strong>.</p>
+    <p>Please click the link below to create your account:</p>
+    <p><a href="{{ url_for('auth.register', token=token, email=user.email, _external=True) }}">Join Oda</a></p>
+    <p>If you did not request this, please ignore this email.</p>
+</body>
+</html>

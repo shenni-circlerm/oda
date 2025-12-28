@@ -2,6 +2,8 @@ from flask_login import UserMixin
 import uuid
 from datetime import datetime
 from extensions import db
+from itsdangerous import URLSafeTimedSerializer
+from flask import current_app
 
 class Restaurant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -28,11 +30,12 @@ class Restaurant(db.Model):
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
-    password = db.Column(db.String(255))
+    password = db.Column(db.String(255), nullable=True)
     role = db.Column(db.String(20)) # 'admin' or 'staff'
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     restaurant = db.relationship('Restaurant', backref='users')
+    is_active = db.Column(db.Boolean, default=False, nullable=False)
 
     def is_admin(self):
         return self.role == 'admin'
@@ -40,6 +43,22 @@ class User(UserMixin, db.Model):
     @property
     def is_superadmin(self):
         return self.role == 'superadmin'
+
+    def get_token(self, salt, expires_sec=1800):
+        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=salt)
+        return s.dumps({'user_id': self.id})
+
+    @staticmethod
+    def verify_token(token, salt, expires_sec=1800):
+        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=salt)
+        try:
+            user_id = s.loads(
+                token,
+                max_age=expires_sec
+            )['user_id']
+        except Exception:
+            return None
+        return db.session.get(User, user_id)
 
 menu_category_association = db.Table('menu_category_association',
     db.Column('menu_id', db.Integer, db.ForeignKey('menu.id'), primary_key=True),

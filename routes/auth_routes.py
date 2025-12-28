@@ -1,8 +1,9 @@
-from flask import Blueprint, redirect, url_for, request, flash, render_template
+from flask import Blueprint, redirect, url_for, request, flash, render_template, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from project.models import User, Restaurant
 from extensions import db
+from .email import send_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -13,9 +14,19 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         
-        if user and check_password_hash(user.password, password):
+        if user and user.is_active and user.password and check_password_hash(user.password, password):
             login_user(user)
-            return redirect(url_for('admin.staff_dashboard'))
+            if user.role == 'kitchen':
+                session['current_view'] = 'kitchen'
+                return redirect(url_for('admin.kitchen_orders'))
+            elif user.role == 'staff':
+                session['current_view'] = 'store_front'
+                return redirect(url_for('admin.storefront_tables'))
+            session['current_view'] = 'online_store'
+            return redirect(url_for('admin.design_menu_design'))
+        elif user and not user.is_active:
+            flash('Account not activated. Please check your email for an invitation link.')
+            return redirect(url_for('customer.landing'))
         
         flash('Please check your login details and try again.')
         return redirect(url_for('customer.landing'))
@@ -41,16 +52,62 @@ def change_password():
         current_user.password = generate_password_hash(new_password)
         db.session.commit()
         flash('Password updated successfully.')
-        return redirect(url_for('admin.staff_dashboard'))
+        if current_user.role == 'kitchen':
+            return redirect(url_for('admin.kitchen_orders'))
+        elif current_user.role == 'staff':
+            return redirect(url_for('admin.storefront_tables'))
+        return redirect(url_for('admin.design_menu_design'))
         
     return render_template('change_password.html')
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
+    if request.method == 'GET':
+        token = request.args.get('token')
+        if token:
+            user = User.verify_token(token, salt='staff-invitation', expires_sec=604800)
+            if not user:
+                flash('This invitation has been revoked or expired.')
+                return redirect(url_for('customer.landing'))
+            
+            if user.password:
+                flash('You have already registered. Logging you in...')
+                login_user(user)
+                if user.role == 'kitchen':
+                    return redirect(url_for('admin.kitchen_orders'))
+                elif user.role == 'staff':
+                    return redirect(url_for('admin.storefront_tables'))
+                session['current_view'] = 'online_store'
+                return redirect(url_for('admin.design_menu_design'))
+            
+            return render_template('register.html', email=user.email)
+
     if request.method == 'POST':
-        restaurant_name = request.form.get('restaurant_name')
+        token = request.form.get('token')
         email = request.form.get('email')
         password = request.form.get('password')
+        
+        if token:
+            user = User.verify_token(token, salt='staff-invitation', expires_sec=604800)
+            if not user:
+                flash('This invitation has been revoked or expired.')
+                return redirect(url_for('customer.landing'))
+            
+            user.password = generate_password_hash(password)
+            user.is_active = True
+            db.session.add(user)
+            db.session.commit()
+            
+            login_user(user)
+            
+            if user.role == 'kitchen':
+                return redirect(url_for('admin.kitchen_orders'))
+            elif user.role == 'staff':
+                return redirect(url_for('admin.storefront_tables'))
+            session['current_view'] = 'online_store'
+            return redirect(url_for('admin.design_menu_design'))
+
+        restaurant_name = request.form.get('restaurant_name')
         
         if User.query.filter_by(email=email).first():
             flash("Email already registered.")
@@ -68,7 +125,8 @@ def register():
             email=email,
             password=hashed_pw,
             role='admin',
-            restaurant_id=new_restaurant.id
+            restaurant_id=new_restaurant.id,
+            is_active=True
         )
         
         db.session.add(new_admin)
@@ -76,7 +134,61 @@ def register():
         
         login_user(new_admin)
         
+        session['current_view'] = 'online_store'
         flash("Account created! You can now log in.")
-        return redirect(url_for('admin.menu_design'))
+        return redirect(url_for('admin.design_menu_design'))
 
     return render_template('register.html')
+
+@auth_bp.route('/accept-invitation/<token>', methods=['GET', 'POST'])
+def accept_invitation(token):
+    user = User.verify_token(token, salt='staff-invitation', expires_sec=604800) # 7 days
+    if not user:
+        flash('The invitation link is invalid or has expired.')
+        return redirect(url_for('customer.landing'))
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        user.password = generate_password_hash(password)
+        user.is_active = True
+        db.session.commit()
+        flash('Your account has been activated! You can now log in.')
+        return redirect(url_for('auth.login'))
+
+    return render_template('accept_invitation.html', token=token, user=user)
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = user.get_token(salt='password-reset')
+            send_email(
+                user.email,
+                'Reset Your Password',
+                'email/reset_password',
+                user=user,
+                token=token
+            )
+            flash('A password reset link has been sent to your email.')
+            return redirect(url_for('customer.landing'))
+        else:
+            flash('Email address not found.')
+    return render_template('forgot_password.html')
+
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    user = User.verify_token(token, salt='password-reset')
+    if not user:
+        flash('The password reset link is invalid or has expired.')
+        return redirect(url_for('customer.landing'))
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        user.password = generate_password_hash(password)
+        db.session.commit()
+        flash('Your password has been updated! You can now log in.')
+        return redirect(url_for('auth.login'))
+
+    return render_template('reset_password.html', token=token)

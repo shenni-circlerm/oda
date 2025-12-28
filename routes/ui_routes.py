@@ -1,5 +1,6 @@
 from flask import Blueprint, session, jsonify, request, url_for
-from routes.admin_nav import get_current_menu, MENU_STRUCTURE
+from flask_login import current_user
+from routes.nav import get_current_menu, MENU_STRUCTURE
 
 ui_bp = Blueprint('ui', __name__)
 
@@ -22,9 +23,25 @@ def switch_view():
 @ui_bp.app_context_processor
 def inject_admin_nav():
     """Injects sidebar_menu and current_view into all templates."""
+    
+    sidebar_menu = []
+    available_views = []
+    current_view = session.get('current_view', 'kitchen')
+    
+    if current_user.is_authenticated:
+        # 1. Get the menu structure for the current view (for ALL roles)
+        sidebar_menu = get_current_menu()
+        
+        if current_user.role == 'admin':
+            # Admins can switch between all views
+            available_views = list(MENU_STRUCTURE.keys())
+        else:
+            # Non-admins are locked to their current view
+            available_views = [current_view] if current_view else []
+
     return dict(
-        current_view=session.get('current_view', 'kitchen'),
-        sidebar_menu=get_current_menu(),
-        available_views=list(MENU_STRUCTURE.keys()),
+        current_view=current_view,
+        sidebar_menu=sidebar_menu,
+        available_views=available_views,
         MENU_STRUCTURE=MENU_STRUCTURE
     )
