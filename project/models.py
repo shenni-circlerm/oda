@@ -42,7 +42,8 @@ class User(UserMixin, db.Model):
     
     @property
     def is_superadmin(self):
-        return self.role == 'superadmin'
+        from flask import current_app
+        return self.email == current_app.config.get('MASTER_SYSTEM_ADMIN_EMAIL')
 
     def get_token(self, salt, expires_sec=1800):
         s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=salt)

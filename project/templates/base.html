@@ -11,6 +11,14 @@
     {% block styles %}{% endblock %}
   </head>
   <body>
+    {% if session.get('original_user_id') %}
+    <div class="bg-warning text-dark text-center py-2 fw-bold">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        You are currently impersonating a user. 
+        <a href="{{ url_for('sysadmin.stop_impersonation') }}" class="text-dark fw-bold text-decoration-underline">Stop Impersonating</a>
+    </div>
+    {% endif %}
+
     <!-- Authenticated User Layout -->
     <div class="bg-primary text-white text-center py-2 shadow-sm d-flex justify-content-center align-items-center" style="position: sticky; top: 0; z-index: 1050;">
       <!-- View Switcher Dropdown -->
@@ -54,6 +62,13 @@
           </ul>
 
           <ul class="list-unstyled mt-auto pb-3">
+              {% if current_user.is_superadmin %}
+              <li>
+                  <a href="{{ url_for('sysadmin.dashboard') }}">
+                      <i class="bi bi-shield-lock me-2"></i> <span class="link-text">Sysadmin</span>
+                  </a>
+              </li>
+              {% endif %}
               <li>
                   <a href="{{ url_for('auth.change_password') }}">
                       <i class="bi bi-person-circle me-2"></i> <span class="link-text">Profile</span>

@@ -27,14 +27,14 @@ def create_app(config_name='default'):
 
     from routes.routes import admin_bp
     from routes.qrlink_routes import qrlink_bp
-    from routes.super_admin_routes import super_admin_bp
+    from routes.sysadmin_routes import sysadmin_bp
     from routes.admin_analytics import analytics_bp
     from routes.auth_routes import auth_bp
     from routes.ui_routes import ui_bp
 
     app.register_blueprint(admin_bp)
     app.register_blueprint(qrlink_bp)
-    app.register_blueprint(super_admin_bp)
+    app.register_blueprint(sysadmin_bp)
     app.register_blueprint(analytics_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(ui_bp)

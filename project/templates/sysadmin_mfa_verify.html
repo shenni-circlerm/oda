@@ -1,0 +1,29 @@
+{% extends "customer_base.html" %}
+
+{% block title %}Two-Factor Authentication{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-2 fw-bold">Verify Your Identity</h3>
+                <p class="text-center text-muted mb-4">A 6-digit verification code has been sent to your email address.</p>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="mfa_code" class="form-label">Verification Code</label>
+                        <input type="text" name="mfa_code" id="mfa_code" class="form-control form-control-lg text-center" 
+                               maxlength="6" pattern="\d{6}" inputmode="numeric" required autofocus>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Verify</button>
+                    </div>
+                </form>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('auth.logout') }}" class="small text-muted">Cancel and go back</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

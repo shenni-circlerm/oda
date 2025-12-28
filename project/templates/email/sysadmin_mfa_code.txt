@@ -1,0 +1,7 @@
+Your Verification Code
+
+Please use the following code to complete your login:
+{{ mfa_code }}
+
+This code will expire in 5 minutes.
+If you did not request this, please ignore this email or contact support.

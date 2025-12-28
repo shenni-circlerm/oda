@@ -19,7 +19,7 @@ class Config:
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     
     # Master System Admin
-    MASTER_SYSTEM_ADMIN_EMAIL = os.environ.get('MASTER_SYSTEM_ADMIN_EMAIL', 'admin@example.com')
+    MASTER_SYSTEM_ADMIN_EMAIL = os.environ.get('MASTER_SYSTEM_ADMIN_EMAIL', 'yokesan@paydee.co')
 
 class DevelopmentConfig(Config):
     """Development configuration."""

@@ -1,6 +1,9 @@
 from flask import Blueprint, redirect, url_for, request, flash, render_template, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
+from datetime import datetime
+import random
+import string
 from project.models import User, Restaurant
 from extensions import db
 from .email import send_email
@@ -16,6 +19,7 @@ def login():
         
         if user and user.is_active and user.password and check_password_hash(user.password, password):
             login_user(user)
+            print(f"DEBUG: User '{user.email}' logged in with role: '{user.role}'")
             if user.role == 'kitchen':
                 session['current_view'] = 'kitchen'
                 return redirect(url_for('admin.kitchen_orders'))
@@ -36,6 +40,7 @@ def login():
 @login_required
 def logout():
     logout_user()
+    session.pop('mfa_verified_this_session', None)
     return redirect(url_for('admin.landing'))
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
@@ -192,3 +197,31 @@ def reset_password(token):
         return redirect(url_for('auth.login'))
 
     return render_template('reset_password.html', token=token)
+
+@auth_bp.route('/verify-mfa', methods=['GET', 'POST'])
+def verify_mfa():
+    if 'mfa_code' not in session:
+        return redirect(url_for('admin.landing'))
+
+    # Check for timeout (5 minutes)
+    mfa_timestamp = session.get('mfa_timestamp', 0)
+    if (datetime.utcnow().timestamp() - mfa_timestamp) > 300:
+        session.pop('mfa_code', None)
+        session.pop('mfa_timestamp', None)
+        flash("Your verification code has expired. Please log in again.", "warning")
+        return redirect(url_for('admin.landing'))
+
+    if request.method == 'POST':
+        submitted_code = request.form.get('mfa_code')
+        if submitted_code == session.get('mfa_code'):
+            if current_user.is_authenticated and current_user.is_superadmin:
+                session['mfa_verified_this_session'] = True
+                session.pop('mfa_code', None)
+                session.pop('mfa_timestamp', None)
+                
+                flash("Successfully verified. Welcome!", "success")
+                return redirect(url_for('sysadmin.dashboard'))
+        else:
+            flash("Invalid verification code.", "danger")
+    
+    return render_template('sysadmin_mfa_verify.html')
