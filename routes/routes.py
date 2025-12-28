@@ -35,7 +35,7 @@ def landing():
         elif current_user.role == 'staff':
             return redirect(url_for('admin.storefront_tables'))
         # Default for admin
-        return redirect(url_for('admin.design_menu_design'))
+        return redirect(url_for('admin.design_branding'))
     return render_template('landing.html')
 
 @admin_bp.route('/kitchen/orders')
@@ -829,7 +829,7 @@ def design_menu_design():
         flash("Store design updated.")
         return redirect(url_for('admin.design_menu_design'))
 
-    return render_template('design_pages.html', config=config)
+    return render_template('design_pages.html', config=config, restaurant=restaurant)
 
 @admin_bp.route('/design/qr-design', methods=['GET', 'POST'])
 @login_required

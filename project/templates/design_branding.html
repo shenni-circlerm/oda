@@ -4,6 +4,22 @@
 
 {% block styles %}
 <style>
+    /* Split Layout */
+    .design-container {
+        height: calc(100vh - 100px);
+        overflow: hidden;
+    }
+    .preview-pane {
+        background-color: #f0f2f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-right: 1px solid #dee2e6;
+    }
+    .config-pane {
+        background-color: #fff;
+        overflow-y: auto;
+    }
     .drop-zone {
         border: 2px dashed #ccc;
         border-radius: 0.5rem;
@@ -25,79 +41,82 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="fw-bold mb-0">Branding & Identity</h2>
+<div class="container-fluid p-0">
+    <div class="row g-0 design-container">
+        <!-- Left Column: Preview -->
+        <div class="col-md-7 preview-pane">
+            <div id="preview-screen" class="shadow-lg" style="width: 100%; max-width: 420px; height: 90%; overflow-y: auto; border-radius: 1rem; background: white;">
+                <!-- Live preview will be rendered here by JavaScript -->
             </div>
+        </div>
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <form method="POST" enctype="multipart/form-data">
-                        <!-- Basic Info -->
-                        <h5 class="fw-bold mb-3 text-muted">General Information</h5>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label">Restaurant Name</label>
-                                <input type="text" name="name" class="form-control" value="{{ restaurant.name }}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Tagline / Slogan</label>
-                                <input type="text" name="tagline" class="form-control" value="{{ restaurant.tagline or '' }}" placeholder="e.g. Best Pizza in Town">
-                            </div>
+        <!-- Right Column: Configuration -->
+        <div class="col-md-5 config-pane">
+            <div class="p-4">
+                <h4 class="fw-bold mb-4">Branding & Identity</h4>
+                <form method="POST" enctype="multipart/form-data">
+                    <!-- Basic Info -->
+                    <h5 class="fw-bold mb-3 text-muted">General Information</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label class="form-label">Restaurant Name</label>
+                            <input type="text" name="name" class="form-control" value="{{ restaurant.name }}" required>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label">Tagline / Slogan</label>
+                            <input type="text" name="tagline" class="form-control" value="{{ restaurant.tagline or '' }}" placeholder="e.g. Best Pizza in Town">
+                        </div>
+                    </div>
 
-                        <hr class="my-4">
+                    <hr class="my-4">
 
-                        <!-- Visual Identity -->
-                        <h5 class="fw-bold mb-3 text-muted">Visual Identity</h5>
-                        
-                        <div class="row g-4 mb-4">
-                            <!-- Logo Upload -->
-                            <div class="col-md-6">
-                                <label class="form-label">Logo</label>
-                                <div class="drop-zone p-3" id="logo-drop-zone" style="height: 200px;">
-                                    <div id="logo-preview-container" class="{{ 'd-none' if not restaurant.logo_data }}">
-                                        {% if restaurant.logo_data %}
-                                        <img id="logo-preview" src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}" class="rounded-circle shadow-sm" style="width: 150px; height: 150px; object-fit: cover;">
-                                        {% endif %}
-                                    </div>
-                                    <div class="drop-zone-prompt {{ 'd-none' if restaurant.logo_data else '' }}" id="logo-prompt">
-                                        <i class="bi bi-cloud-upload fs-1"></i>
-                                        <span class="mt-2 small">Drop logo here or click to upload</span>
-                                    </div>
-                                    <input type="file" name="logo" id="logo-input" class="d-none" accept="image/*">
+                    <!-- Visual Identity -->
+                    <h5 class="fw-bold mb-3 text-muted">Visual Identity</h5>
+                    
+                    <div class="row g-4 mb-4">
+                        <!-- Logo Upload -->
+                        <div class="col-12">
+                            <label class="form-label">Logo</label>
+                            <div class="drop-zone p-3" id="logo-drop-zone" style="height: 200px;">
+                                <div id="logo-preview-container" class="{{ 'd-none' if not restaurant.logo_data }}">
+                                    {% if restaurant.logo_data %}
+                                    <img id="logo-preview" src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}" class="rounded-circle shadow-sm" style="width: 150px; height: 150px; object-fit: cover;">
+                                    {% endif %}
                                 </div>
-                                <div class="form-text text-center small mt-2">Recommended: Square (1:1), PNG or JPG</div>
-                            </div>
-
-                            <!-- Banner Upload -->
-                            <div class="col-md-6">
-                                <label class="form-label">Banner Image</label>
-                                <div class="drop-zone p-3" id="banner-drop-zone" style="height: 200px;">
-                                    <div id="banner-preview-container" class="{{ 'd-none' if not restaurant.banner_data }}">
-                                        {% if restaurant.banner_data %}
-                                        <img id="banner-preview" src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}" class="rounded shadow-sm" style="width: 100%; height: 180px; object-fit: cover;">
-                                        {% endif %}
-                                    </div>
-                                    <div class="drop-zone-prompt {{ 'd-none' if restaurant.banner_data else '' }}" id="banner-prompt">
-                                        <i class="bi bi-cloud-upload fs-1"></i>
-                                        <span class="mt-2 small">Drop banner here or click to upload</span>
-                                    </div>
-                                    <input type="file" name="banner" id="banner-input" class="d-none" accept="image/*">
+                                <div class="drop-zone-prompt {{ 'd-none' if restaurant.logo_data else '' }}" id="logo-prompt">
+                                    <i class="bi bi-cloud-upload fs-1"></i>
+                                    <span class="mt-2 small">Drop logo here or click to upload</span>
                                 </div>
-                                <div class="form-text text-center small mt-2">Recommended: Landscape (16:9), High Res</div>
+                                <input type="file" name="logo" id="logo-input" class="d-none" accept="image/*">
                             </div>
+                            <div class="form-text text-center small mt-2">Recommended: Square (1:1), PNG or JPG</div>
                         </div>
 
-                        <div class="d-grid d-md-flex justify-content-md-end mt-5">
-                            <button type="submit" class="btn btn-primary px-5 rounded-pill">
-                                <i class="bi bi-check-lg me-2"></i>Save Changes
-                            </button>
+                        <!-- Banner Upload -->
+                        <div class="col-12">
+                            <label class="form-label">Banner Image</label>
+                            <div class="drop-zone p-3" id="banner-drop-zone" style="height: 200px;">
+                                <div id="banner-preview-container" class="{{ 'd-none' if not restaurant.banner_data }}">
+                                    {% if restaurant.banner_data %}
+                                    <img id="banner-preview" src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}" class="rounded shadow-sm" style="width: 100%; height: 180px; object-fit: cover;">
+                                    {% endif %}
+                                </div>
+                                <div class="drop-zone-prompt {{ 'd-none' if restaurant.banner_data else '' }}" id="banner-prompt">
+                                    <i class="bi bi-cloud-upload fs-1"></i>
+                                    <span class="mt-2 small">Drop banner here or click to upload</span>
+                                </div>
+                                <input type="file" name="banner" id="banner-input" class="d-none" accept="image/*">
+                            </div>
+                            <div class="form-text text-center small mt-2">Recommended: Landscape (16:9), High Res</div>
                         </div>
-                    </form>
-                </div>
+                    </div>
+
+                    <div class="d-grid mt-5">
+                        <button type="submit" class="btn btn-primary btn-lg rounded-pill">
+                            <i class="bi bi-check-lg me-2"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -106,11 +125,10 @@
 
 {% block scripts %}
 <script>
-function setupDropZone(zoneId, inputId, previewContainerId, previewImgId, promptId) {
+function setupDropZone(zoneId, inputId, previewContainerId, previewImgId, promptId, onUpdateCallback) {
     const dropZone = document.getElementById(zoneId);
     const fileInput = document.getElementById(inputId);
     const previewContainer = document.getElementById(previewContainerId);
-    const previewImage = document.getElementById(previewImgId);
     const prompt = document.getElementById(promptId);
 
     if (!dropZone) return;
@@ -143,11 +161,10 @@ function setupDropZone(zoneId, inputId, previewContainerId, previewImgId, prompt
     });
 
     function updateThumbnail(file) {
+        let previewImage = document.getElementById(previewImgId);
         if (previewContainer.querySelector('img')) {
-            // If an img element already exists, update its src
             previewImage.src = URL.createObjectURL(file);
         } else {
-            // Otherwise, create a new one
             const newPreviewImage = document.createElement('img');
             newPreviewImage.src = URL.createObjectURL(file);
             newPreviewImage.id = previewImgId;
@@ -157,12 +174,72 @@ function setupDropZone(zoneId, inputId, previewContainerId, previewImgId, prompt
         }
         previewContainer.classList.remove('d-none');
         prompt.classList.add('d-none');
+        if (onUpdateCallback) onUpdateCallback();
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    setupDropZone('logo-drop-zone', 'logo-input', 'logo-preview-container', 'logo-preview', 'logo-prompt');
-    setupDropZone('banner-drop-zone', 'banner-input', 'banner-preview-container', 'banner-preview', 'banner-prompt');
+    const form = document.querySelector('form');
+    const previewScreen = document.getElementById('preview-screen');
+    const restaurantNameInput = document.querySelector('input[name="name"]');
+    const taglineInput = document.querySelector('input[name="tagline"]');
+
+    const initialLogoUrl = "{% if restaurant.logo_data %}{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}{% endif %}";
+    const initialBannerUrl = "{% if restaurant.banner_data %}{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}{% endif %}";
+
+    function renderPreview() {
+        const name = restaurantNameInput.value;
+        const tagline = taglineInput.value;
+
+        const logoPreview = document.getElementById('logo-preview');
+        const bannerPreview = document.getElementById('banner-preview');
+        const logoUrl = logoPreview ? logoPreview.src : initialLogoUrl;
+        const bannerUrl = bannerPreview ? bannerPreview.src : initialBannerUrl;
+
+        const bannerStyle = bannerUrl ? `style="background-image: url('${bannerUrl}');"` : '';
+        const logoImg = logoUrl ? `<img src="${logoUrl}" class="restaurant-logo rounded-circle shadow" alt="Logo">` : `<div class="restaurant-logo rounded-circle shadow bg-white d-flex align-items-center justify-content-center mx-auto"><i class="bi bi-shop fs-2 text-primary"></i></div>`;
+
+        previewScreen.innerHTML = `
+            <style>
+                .landing-card { border-radius: 28px; border: none; overflow: hidden; background: white; }
+                .restaurant-logo { width: 100px; height: 100px; object-fit: cover; border: 4px solid white; margin-top: -50px; }
+                .banner-container { height: 180px; background-color: #dfe6e9; background-size: cover; background-position: center; }
+                .order-option-card { border: 2px solid #f1f2f6; border-radius: 18px; padding: 20px; text-decoration: none; color: #2d3436; display: flex; align-items-center; gap: 15px; }
+                .order-option-card i { font-size: 1.8rem; color: #e67e22; }
+                .option-title { font-weight: 700; margin-bottom: 2px; display: block; }
+                .option-desc { font-size: 0.85rem; color: #636e72; display: block; }
+            </style>
+            <div class="card landing-card text-center">
+                <div class="banner-container" ${bannerStyle}></div>
+                <div class="card-body px-4 pb-5">
+                    ${logoImg}
+                    <h2 class="fw-bold mt-3 mb-1">${name}</h2>
+                    <p class="text-muted small mb-3">${tagline || 'Welcome! Choose an option to start.'}</p>
+                    <div class="mt-4 pt-2">
+                        <p class="fw-bold mb-3">How would you like to order?</p>
+                        <div class="d-grid gap-3">
+                            <a href="#" class="order-option-card shadow-sm text-start" onclick="event.preventDefault()">
+                                <i class="bi bi-shop-window"></i>
+                                <div><span class="option-title">Dine-In</span><span class="option-desc">Enjoy your meal here.</span></div>
+                                <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
+                            </a>
+                            <a href="#" class="order-option-card shadow-sm text-start" onclick="event.preventDefault()">
+                                <i class="bi bi-bag-heart"></i>
+                                <div><span class="option-title">Take-Away</span><span class="option-desc">Pick up and go.</span></div>
+                                <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    setupDropZone('logo-drop-zone', 'logo-input', 'logo-preview-container', 'logo-preview', 'logo-prompt', renderPreview);
+    setupDropZone('banner-drop-zone', 'banner-input', 'banner-preview-container', 'banner-preview', 'banner-prompt', renderPreview);
+
+    form.addEventListener('input', renderPreview);
+    renderPreview(); // Initial render
 });
 </script>
 {% endblock %}

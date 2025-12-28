@@ -23,7 +23,7 @@ def login():
                 session['current_view'] = 'store_front'
                 return redirect(url_for('admin.storefront_tables'))
             session['current_view'] = 'online_store'
-            return redirect(url_for('admin.design_menu_design'))
+            return redirect(url_for('admin.design_branding'))
         elif user and not user.is_active:
             flash('Account not activated. Please check your email for an invitation link.')
             return redirect(url_for('admin.landing'))
@@ -56,7 +56,7 @@ def change_password():
             return redirect(url_for('admin.kitchen_orders'))
         elif current_user.role == 'staff':
             return redirect(url_for('admin.storefront_tables'))
-        return redirect(url_for('admin.design_menu_design'))
+        return redirect(url_for('admin.design_branding'))
         
     return render_template('change_password.html')
 
@@ -78,7 +78,7 @@ def register():
                 elif user.role == 'staff':
                     return redirect(url_for('admin.storefront_tables'))
                 session['current_view'] = 'online_store'
-                return redirect(url_for('admin.design_menu_design'))
+                return redirect(url_for('admin.design_branding'))
             
             return render_template('welcome.html', email=user.email)
 
@@ -105,7 +105,7 @@ def register():
             elif user.role == 'staff':
                 return redirect(url_for('admin.storefront_tables'))
             session['current_view'] = 'online_store'
-            return redirect(url_for('admin.design_menu_design'))
+            return redirect(url_for('admin.design_branding'))
 
         restaurant_name = request.form.get('restaurant_name')
         
@@ -136,7 +136,7 @@ def register():
         
         session['current_view'] = 'online_store'
         flash("Account created! You can now log in.")
-        return redirect(url_for('admin.design_menu_design'))
+        return redirect(url_for('admin.design_branding'))
 
     return render_template('register.html')
 

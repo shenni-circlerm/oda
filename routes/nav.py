@@ -32,7 +32,6 @@ MENU_STRUCTURE = {
         'label': 'Online Store',
         'description': 'Shape the ordering experience your customers see.',
         'items': [
-            {'label': 'Design', 'endpoint': 'admin.design_menu_design', 'icon': 'bi-pencil-square'},
             {'label': 'Branding', 'endpoint': 'admin.design_branding', 'icon': 'bi-palette'},
             {'label': 'QR Design', 'endpoint': 'admin.design_qr_design', 'icon': 'bi-palette2'},
         ]
