@@ -1198,6 +1198,23 @@ def storefront_orders():
                 if items_added_count > 0:
                     db.session.commit()
                     flash(f'{items_added_count} item(s) added to the order.')
+
+        elif action == 'update_item_quantity':
+            item_id = request.form.get('item_id')
+            quantity = request.form.get('quantity')
+            if item_id and quantity:
+                item = OrderItem.query.get(item_id)
+                if item and item.order.restaurant_id == restaurant.id:
+                    try:
+                        new_quantity = int(quantity)
+                        if new_quantity > 0:
+                            item.quantity = new_quantity
+                        else: # If quantity is 0 or less, remove the item
+                            db.session.delete(item)
+                    except ValueError:
+                        flash('Invalid quantity.', 'danger')
+                    db.session.commit()
+                    flash(f'{items_added_count} item(s) added to the order.')
         
         return redirect(url_for('admin.storefront_orders', order_id=order_id))
 

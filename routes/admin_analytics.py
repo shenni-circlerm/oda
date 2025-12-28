@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import csv
 import io
 
-from project.models import Order, OrderItem, MenuItem
+from project.models import Order, OrderItem, MenuItem, Table
 from extensions import db
 
 analytics_bp = Blueprint('analytics', __name__, url_prefix='/office/analytics')
@@ -58,9 +58,24 @@ def analytics_dashboard():
 @login_required
 def export_orders():
     """Exports all paid/completed orders to a CSV file."""
-    # This is a placeholder. A full implementation would query the database.
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['Order ID', 'Date', 'Total'])
+    writer.writerow(['Order ID', 'Date', 'Table', 'Status', 'Total'])
+
+    # Query all completed/paid orders with their totals
+    orders_query = db.session.query(
+        Order.id,
+        Order.created_at,
+        Table.number,
+        Order.status,
+        func.sum(MenuItem.price * OrderItem.quantity).label('total')
+    ).select_from(Order).join(OrderItem).join(MenuItem).join(Table).filter(
+        Order.restaurant_id == current_user.restaurant_id,
+        Order.status.in_(['paid', 'completed'])
+    ).group_by(Order.id, Order.created_at, Table.number, Order.status).order_by(Order.created_at.desc())
+
+    for order in orders_query.all():
+        writer.writerow([order.id, order.created_at.strftime('%Y-%m-%d %H:%M:%S'), order.number, order.status, f"{order.total:.2f}"])
+
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=orders_export.csv"})
