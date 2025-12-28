@@ -93,7 +93,7 @@
                     <div class="row">
                         <!-- QR Display -->
                         <div class="col-md-5 text-center border-end">
-                            {% set qr_url = request.host_url ~ 'menu/' ~ restaurant.slug ~ '?table=' ~ selected_table.number %}
+                            {% set qr_url = url_for('qrlink.customer_view', slug=restaurant.slug, table=selected_table.number, _external=True) %}
                             {% set qr_color = restaurant.qr_config.get('color', '000000') %}
                             {% set qr_bgcolor = restaurant.qr_config.get('bgcolor', 'FFFFFF') %}
                             

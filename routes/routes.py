@@ -16,11 +16,6 @@ admin_bp = Blueprint('admin', __name__)
 
 # UPLOAD_FOLDER is now accessed via current_app.config['UPLOAD_FOLDER']
 
-@admin_bp.before_request
-def restrict_bp_access():
-    if not current_user.is_authenticated:
-        return redirect(url_for('customer.landing'))
-
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -28,6 +23,19 @@ def admin_required(f):
             abort(403) # Forbidden
         return f(*args, **kwargs)
     return decorated_function
+
+@admin_bp.route('/')
+def landing():
+    """Renders the main landing/login page for staff."""
+    if current_user.is_authenticated:
+        # Redirect to their dashboard if already logged in
+        if current_user.role == 'kitchen':
+            return redirect(url_for('admin.kitchen_orders'))
+        elif current_user.role == 'staff':
+            return redirect(url_for('admin.storefront_tables'))
+        # Default for admin
+        return redirect(url_for('admin.design_menu_design'))
+    return render_template('landing.html')
 
 @admin_bp.route('/kitchen/orders')
 @login_required
@@ -1022,7 +1030,7 @@ def storefront_delete_table(table_id):
     db.session.delete(table)
     db.session.commit()
     
-    undo_url = url_for('admin.undo_delete_table')
+    undo_url = url_for('admin.storefront_undo_delete_table')
     flash(f"Table {table.number} deleted. <a href='{undo_url}' class='fw-bold text-decoration-underline'>Undo</a>")
     
     if next_id:

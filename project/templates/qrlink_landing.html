@@ -1,0 +1,19 @@
+{% extends "customer_base.html" %}
+
+{% block title %}{{ restaurant.name }} - Welcome{% endblock %}
+
+{% block content %}
+<div class="text-center p-4 bg-white rounded shadow-sm">
+    {% if restaurant.banner_data %}
+    <img src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}" class="img-fluid rounded mb-4" alt="Banner">
+    {% endif %}
+    <h1 class="fw-bold">{{ restaurant.name }}</h1>
+    <p class="lead text-muted">{{ restaurant.tagline }}</p>
+    <hr>
+    <p class="fw-bold">How would you like to order?</p>
+    <div class="d-grid gap-2 col-8 mx-auto">
+        <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, table=table.number if table else None, type='dine-in') }}" class="btn btn-primary btn-lg">Dine-In</a>
+        <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, type='take-away') }}" class="btn btn-secondary btn-lg">Take-Away</a>
+    </div>
+</div>
+{% endblock %}

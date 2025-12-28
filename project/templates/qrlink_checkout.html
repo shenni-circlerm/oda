@@ -1,0 +1,116 @@
+{% extends "customer_base.html" %}
+
+{% block title %}{{ restaurant.name }} - Checkout{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h4 class="fw-bold mb-0">Your Order</h4>
+            </div>
+            <div class="card-body">
+                <div id="cart-items-container">
+                    <!-- Cart items will be injected here by JS -->
+                    <p class="text-muted text-center">Your cart is empty.</p>
+                </div>
+            </div>
+            <div class="card-footer bg-white border-0">
+                <div class="w-100">
+                    <div class="d-flex justify-content-between fw-bold fs-5 mb-3">
+                        <span>Total:</span>
+                        <span id="cart-total">$0.00</span>
+                    </div>
+                    <button id="checkout-button" class="btn btn-success w-100 btn-lg" onclick="submitOrder()">Place Order</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const tableId = "{{ table.id if table else '' }}";
+    const restaurantId = "{{ restaurant.id }}";
+    const orderType = new URLSearchParams(window.location.search).get('type');
+
+    function getCart() {
+        return JSON.parse(localStorage.getItem('cart') || '{}');
+    }
+
+    function saveCart(cart) {
+        localStorage.setItem('cart', JSON.stringify(cart));
+        renderCart();
+    }
+
+    function updateQuantity(id, change) {
+        const cart = getCart();
+        if (cart[id]) {
+            cart[id].quantity += change;
+            if (cart[id].quantity <= 0) {
+                delete cart[id];
+            }
+            saveCart(cart);
+        }
+    }
+
+    function renderCart() {
+        const cart = getCart();
+        const container = document.getElementById('cart-items-container');
+        const totalEl = document.getElementById('cart-total');
+        const checkoutButton = document.getElementById('checkout-button');
+        container.innerHTML = '';
+        let total = 0;
+
+        if (Object.keys(cart).length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">Your cart is empty.</p>';
+            checkoutButton.disabled = true;
+        } else {
+            checkoutButton.disabled = false;
+            for (const id in cart) {
+                const item = cart[id];
+                total += item.price * item.quantity;
+                container.innerHTML += `
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+                        <div>
+                            <h6 class="mb-0">${item.name}</h6>
+                            <small class="text-muted">$${item.price.toFixed(2)}</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-light border" onclick="updateQuantity('${id}', -1)">-</button>
+                            <span>${item.quantity}</span>
+                            <button class="btn btn-sm btn-light border" onclick="updateQuantity('${id}', 1)">+</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        totalEl.textContent = `$${total.toFixed(2)}`;
+    }
+
+    function submitOrder() {
+        const cart = getCart();
+        if (Object.keys(cart).length === 0) return alert("Cart is empty!");
+
+        const itemsForServer = Object.values(cart).map(item => ({ menu_item_id: item.id, quantity: item.quantity }));
+
+        fetch("{{ url_for('qrlink.place_order') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table_id: tableId, restaurant_id: restaurantId, order_type: orderType, items: itemsForServer })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                localStorage.removeItem('cart'); // Clear cart on success
+                window.location.href = `/qrlink/{{ restaurant.slug }}/thanks/${data.order_id}`;
+            } else {
+                alert("There was an issue placing your order: " + data.message);
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', renderCart);
+</script>
+{% endblock %}

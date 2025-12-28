@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "customer_base.html" %}
 
 {% block title %}{{ restaurant.name }} - Menu{% endblock %}
 
@@ -55,7 +55,7 @@ function submitOrder() {
     if (!tableId) return alert("Table not identified. Please scan QR code again.");
     if (cart.length === 0) return alert("Cart is empty!");
 
-    fetch('/place-order', {
+    fetch("{{ url_for('qrlink.place_order') }}", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

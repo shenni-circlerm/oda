@@ -1,0 +1,12 @@
+{% extends "customer_base.html" %}
+
+{% block title %}Thank You!{% endblock %}
+
+{% block content %}
+<div class="text-center p-4 bg-white rounded shadow-sm">
+    <div class="text-success mb-3" style="font-size: 4rem;"><i class="bi bi-check-circle-fill"></i></div>
+    <h3 class="fw-bold">Order #{{ order.id }} Sent!</h3>
+    <p class="text-muted">Your order has been sent to the kitchen. Thank you!</p>
+    <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, table=order.table.number if order.table else None) }}" class="btn btn-primary mt-3">Place Another Order</a>
+</div>
+{% endblock %}

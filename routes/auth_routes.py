@@ -26,17 +26,17 @@ def login():
             return redirect(url_for('admin.design_menu_design'))
         elif user and not user.is_active:
             flash('Account not activated. Please check your email for an invitation link.')
-            return redirect(url_for('customer.landing'))
+            return redirect(url_for('admin.landing'))
         
         flash('Please check your login details and try again.')
-        return redirect(url_for('customer.landing'))
-    return redirect(url_for('customer.landing'))
+        return redirect(url_for('admin.landing'))
+    return redirect(url_for('admin.landing'))
     
 @auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('customer.landing'))
+    return redirect(url_for('admin.landing'))
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
@@ -68,7 +68,7 @@ def register():
             user = User.verify_token(token, salt='staff-invitation', expires_sec=604800)
             if not user:
                 flash('This invitation has been revoked or expired.')
-                return redirect(url_for('customer.landing'))
+                return redirect(url_for('admin.landing'))
             
             if user.password:
                 flash('You have already registered. Logging you in...')
@@ -80,7 +80,7 @@ def register():
                 session['current_view'] = 'online_store'
                 return redirect(url_for('admin.design_menu_design'))
             
-            return render_template('register.html', email=user.email)
+            return render_template('welcome.html', email=user.email)
 
     if request.method == 'POST':
         token = request.form.get('token')
@@ -91,7 +91,7 @@ def register():
             user = User.verify_token(token, salt='staff-invitation', expires_sec=604800)
             if not user:
                 flash('This invitation has been revoked or expired.')
-                return redirect(url_for('customer.landing'))
+                return redirect(url_for('admin.landing'))
             
             user.password = generate_password_hash(password)
             user.is_active = True
@@ -145,7 +145,7 @@ def accept_invitation(token):
     user = User.verify_token(token, salt='staff-invitation', expires_sec=604800) # 7 days
     if not user:
         flash('The invitation link is invalid or has expired.')
-        return redirect(url_for('customer.landing'))
+        return redirect(url_for('admin.landing'))
 
     if request.method == 'POST':
         password = request.form.get('password')
@@ -172,7 +172,7 @@ def forgot_password():
                 token=token
             )
             flash('A password reset link has been sent to your email.')
-            return redirect(url_for('customer.landing'))
+            return redirect(url_for('admin.landing'))
         else:
             flash('Email address not found.')
     return render_template('forgot_password.html')
@@ -182,7 +182,7 @@ def reset_password(token):
     user = User.verify_token(token, salt='password-reset')
     if not user:
         flash('The password reset link is invalid or has expired.')
-        return redirect(url_for('customer.landing'))
+        return redirect(url_for('admin.landing'))
 
     if request.method == 'POST':
         password = request.form.get('password')
