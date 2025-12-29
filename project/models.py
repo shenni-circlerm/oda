@@ -82,6 +82,7 @@ class Menu(db.Model):
     end_time = db.Column(db.Time, nullable=True)
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
+    active_days = db.Column(db.String(20), nullable=True) # Comma separated indices 0-6
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     categories = db.relationship('Category', secondary=menu_category_association, backref='menus')
 

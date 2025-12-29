@@ -503,13 +503,11 @@ def menu_menus():
         # Parse Time and Date rules
         start_time_str = request.form.get('start_time')
         end_time_str = request.form.get('end_time')
-        start_date_str = request.form.get('start_date')
-        end_date_str = request.form.get('end_date')
+        active_days_list = request.form.getlist('active_days') # Returns list like ['0', '1', '4']
+        active_days_str = ",".join(active_days_list)
         
         start_time = datetime.strptime(start_time_str, '%H:%M').time() if start_time_str else None
         end_time = datetime.strptime(end_time_str, '%H:%M').time() if end_time_str else None
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
 
         if menu_id:
             # Update existing menu
@@ -518,21 +516,30 @@ def menu_menus():
             menu.description = description
             menu.start_time = start_time
             menu.end_time = end_time
-            menu.start_date = start_date
-            menu.end_date = end_date
+            menu.active_days = active_days_str
             menu.is_active = 'is_active' in request.form
+
+            # Process categories
+            category_ids = request.form.getlist('category_ids')
+            menu.categories.clear()
+            for cat_id in category_ids:
+                category = db.session.get(Category, int(cat_id))
+                if category and category.restaurant_id == current_user.restaurant_id:
+                    menu.categories.append(category)
+
             db.session.commit()
             flash('Menu updated.')
             return redirect(url_for('admin.menu_menus', menu_id=menu.id))
         elif name:
             # Create new menu
-            new_menu = Menu(name=name, description=description, restaurant_id=current_user.restaurant_id, start_time=start_time, end_time=end_time, start_date=start_date, end_date=end_date)
+            new_menu = Menu(name=name, description=description, restaurant_id=current_user.restaurant_id, start_time=start_time, end_time=end_time, active_days=active_days_str)
             db.session.add(new_menu)
             db.session.commit()
             flash('Menu created successfully.')
             return redirect(url_for('admin.menu_menus', menu_id=new_menu.id))
         
     menus = Menu.query.filter_by(restaurant_id=current_user.restaurant_id).all()
+    categories = Category.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     
     selected_menu = None
     menu_id = request.args.get('menu_id')
@@ -542,7 +549,7 @@ def menu_menus():
     if not selected_menu and menus:
         selected_menu = menus[0]
         
-    return render_template('menus.html', menus=menus, selected_menu=selected_menu)
+    return render_template('menus.html', menus=menus, selected_menu=selected_menu, categories=categories)
 
 @admin_bp.route('/menu/menus/delete/<int:menu_id>', methods=['POST'])
 @login_required
@@ -564,6 +571,28 @@ def menu_remove_category_from_menu(menu_id, category_id):
         db.session.commit()
         flash(f'Category "{category.name}" removed from menu "{menu.name}".')
         
+    return redirect(url_for('admin.menu_menus', menu_id=menu_id))
+
+@admin_bp.route('/menu/menus/add_category/<int:menu_id>', methods=['POST'])
+@login_required
+def menu_add_category_to_menu(menu_id):
+    menu = Menu.query.filter_by(id=menu_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    category_id = request.form.get('category_id')
+    if category_id:
+        category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first()
+        if category and category not in menu.categories:
+            menu.categories.append(category)
+            db.session.commit()
+            flash(f'Category "{category.name}" added to menu.')
+    return redirect(url_for('admin.menu_menus', menu_id=menu_id))
+
+@admin_bp.route('/menu/menus/toggle/<int:menu_id>', methods=['POST'])
+@login_required
+def menu_toggle_status(menu_id):
+    menu = Menu.query.filter_by(id=menu_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    menu.is_active = not menu.is_active
+    db.session.commit()
+    flash(f'Menu {"enabled" if menu.is_active else "disabled"}.')
     return redirect(url_for('admin.menu_menus', menu_id=menu_id))
 
 @admin_bp.route('/menu/categories', methods=['GET', 'POST'])

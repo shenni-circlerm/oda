@@ -152,10 +152,10 @@
     <!-- Live Preview Side -->
     <div class="col-lg-7 preview-pane d-none d-lg-flex justify-content-center align-items-center position-relative">
         <div class="text-center mb-4 position-absolute top-0 mt-4">
-            <span class="badge rounded-pill bg-white text-dark shadow-sm px-3 py-2 border">
+            <!-- <span class="badge rounded-pill bg-white text-dark shadow-sm px-3 py-2 border">
                 <i class="bi bi-eye-fill me-2 text-primary"></i> Live Customer Preview
             </span>
-        </div>
+        </div> -->
         
         <div class="mobile-mockup" id="live-preview-content">
             <!-- Content Injected via JS -->
@@ -216,13 +216,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const name = nameInput.value || 'Restaurant Name';
         const tagline = taglineInput.value || 'Welcome! Choose an option to start.';
         
-        const logoSrc = document.getElementById('logo-preview').src || 'https://via.placeholder.com/80?text=Logo';
+        const logoSrc = document.getElementById('logo-preview').src;
         const bannerSrc = document.getElementById('banner-preview').src || 'https://via.placeholder.com/400x150?text=Header+Image';
 
         // Check if images are placeholders or real uploads/existing
         const bannerStyle = bannerSrc.includes('placeholder') ? `background-color: #dfe6e9;` : `background-image: url('${bannerSrc}');`;
-        const logoImg = logoSrc.includes('placeholder') 
-            ? `<div class="restaurant-logo rounded-circle shadow bg-white d-flex align-items-center justify-content-center mx-auto"><i class="bi bi-shop fs-2" style="color: ${primaryColor}"></i></div>`
+        const logoImg = (!logoSrc || logoSrc === window.location.href || logoSrc.includes('placeholder'))
+            ? `<div class="restaurant-logo rounded-circle shadow d-flex align-items-center justify-content-center mx-auto"><i class="bi bi-shop fs-1" style="color: ${primaryColor}"></i></div>`
             : `<img src="${logoSrc}" class="restaurant-logo rounded-circle shadow" alt="Logo">`;
 
         previewContainer.innerHTML = `

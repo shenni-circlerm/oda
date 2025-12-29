@@ -96,6 +96,27 @@
         margin-bottom: 1.25rem;
         display: block;
     }
+
+    .menu-badge-check {
+        padding: 10px 15px;
+        border: 1px solid #eee;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .menu-badge-check:hover {
+        background: var(--bg-light);
+    }
+
+    .form-check-input:checked + .menu-badge-check {
+        border-color: var(--primary-color);
+        background: var(--primary-light);
+    }
+
+    .form-check-input:checked + .menu-badge-check .check-icon {
+        display: inline-block !important;
+    }
 </style>
 {% endblock %}
 
@@ -118,7 +139,7 @@
                 <div class="d-flex mt-2">
                     {% set days = ['M','T','W','T','F','S','S'] %}
                     {% for day in days %}
-                        <span class="day-pill {% if loop.index <= 5 %}active{% endif %}">{{ day }}</span>
+                        <span class="day-pill {% if menu.active_days and (loop.index0|string) in menu.active_days.split(',') %}active{% endif %}">{{ day }}</span>
                     {% endfor %}
                 </div>
             </a>
@@ -135,12 +156,13 @@
                     <h2 class="fw-bold mb-1">{{ selected_menu.name }}</h2>
                     <p class="text-muted">Configure when this menu is available and which categories it contains.</p>
                 </div>
-                <button class="btn btn-outline-danger btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteMenuModal">
-                    <i class="bi bi-trash me-2"></i>Delete Menu
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteMenuModal">
+                    <i class="bi bi-trash me-2"></i>Delete
                 </button>
             </div>
 
             <form action="{{ url_for('admin.menu_menus', menu_id=selected_menu.id) }}" method="POST">
+                <input type="hidden" name="menu_id" value="{{ selected_menu.id }}">
                 <div class="row g-5">
                     <!-- Basic Config -->
                     <div class="col-lg-6">
@@ -148,6 +170,10 @@
                         <div class="mb-4">
                             <label class="form-label fw-bold small">Menu Name</label>
                             <input type="text" name="name" class="form-control bg-light border-0 py-2" value="{{ selected_menu.name }}" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold small">Description</label>
+                            <textarea name="description" class="form-control bg-light border-0 py-2" rows="2">{{ selected_menu.description or '' }}</textarea>
                         </div>
                         
                         <div class="mb-4">
@@ -163,45 +189,57 @@
 
                     <!-- Schedule Preview -->
                     <div class="col-lg-6">
-                        <span class="form-section-label">Default Schedule</span>
-                        <div class="bg-light rounded-4 p-4 text-center">
-                            <i class="bi bi-clock-history text-primary opacity-50 fs-2 mb-2 d-block"></i>
-                            <div class="small fw-bold">Always Available</div>
-                            <div class="smallest text-muted">This menu ignores time-of-day restrictions.</div>
-                            <button type="button" class="btn btn-link btn-sm smallest text-decoration-none mt-2">Change to Timed...</button>
+                        <span class="form-section-label">Schedule Rules</span>
+                        <div class="bg-light rounded-4 p-4">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">Daily Time Window</label>
+                                <div class="input-group">
+                                    <input type="time" name="start_time" class="form-control border-0" value="{{ selected_menu.start_time.strftime('%H:%M') if selected_menu.start_time else '' }}">
+                                    <span class="input-group-text border-0 bg-white text-muted">to</span>
+                                    <input type="time" name="end_time" class="form-control border-0" value="{{ selected_menu.end_time.strftime('%H:%M') if selected_menu.end_time else '' }}">
+                                </div>
+                                <div class="form-text smallest">Leave blank for all day.</div>
+                            </div>
+
+                            <div class="mb-0">
+                                <label class="form-label small fw-bold text-muted mb-2">Active Days</label>
+                                <div class="d-flex justify-content-between gap-1">
+                                    {% set week_days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+                                    {% for day in week_days %}
+                                    <input type="checkbox" class="btn-check" name="active_days" id="day-{{ loop.index0 }}" value="{{ loop.index0 }}" 
+                                           {% if selected_menu.active_days and (loop.index0|string) in selected_menu.active_days.split(',') %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary rounded-circle p-0 d-flex align-items-center justify-content-center border-0 shadow-sm" 
+                                           for="day-{{ loop.index0 }}" style="width: 38px; height: 38px; font-weight: bold; font-size: 0.8rem;">
+                                        {{ day[0] }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-5 pt-4 border-top">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <span class="form-section-label mb-0">Included Categories</span>
-                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addCategoryToMenuModal">
-                            <i class="bi bi-plus-lg me-1"></i> Add Category
-                        </button>
-                    </div>
-
-                    <div class="border rounded-4 overflow-hidden">
-                        {% for category in selected_menu.categories %}
-                        <div class="category-row d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
-                                <div class="p-2 bg-light rounded-3 me-3">
-                                    <i class="bi bi-grid-1x2-fill text-primary opacity-50"></i>
+                <div class="mt-5 pt-4 border-top" id="included-categories-section">
+                    <span class="form-section-label mb-4">Included Categories</span>
+                    <div class="row g-2">
+                        {% for category in categories %}
+                        <div class="col-md-6">
+                            <label class="w-100 d-block">
+                                <input type="checkbox" name="category_ids" value="{{ category.id }}" class="form-check-input d-none" 
+                                       {% if category in selected_menu.categories %}checked{% endif %}>
+                                <div class="menu-badge-check d-flex align-items-center">
+                                    <i class="bi bi-grid-1x2-fill me-3 text-primary opacity-50"></i>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold small">{{ category.name }}</div>
+                                        <div class="smallest text-muted">{{ category.items|length }} Items</div>
+                                    </div>
+                                    <i class="bi bi-check-circle-fill check-icon text-primary d-none"></i>
                                 </div>
-                                <div>
-                                    <div class="fw-bold small">{{ category.name }}</div>
-                                    <div class="smallest text-muted">{{ category.items|length }} Items</div>
-                                </div>
-                            </div>
-                            <form action="{{ url_for('admin.menu_remove_category_from_menu', menu_id=selected_menu.id, category_id=category.id) }}" method="POST">
-                                <button type="submit" class="btn btn-link text-danger p-0" title="Remove from menu">
-                                    <i class="bi bi-x-circle fs-5"></i>
-                                </button>
-                            </form>
+                            </label>
                         </div>
                         {% else %}
-                        <div class="p-5 text-center text-muted opacity-50">
-                            <div class="smallest fw-bold">No categories added yet.</div>
+                        <div class="col-12">
+                            <p class="text-muted small">No categories have been created yet. <a href="{{ url_for('admin.menu_categories') }}">Create one first.</a></p>
                         </div>
                         {% endfor %}
                     </div>
@@ -248,4 +286,25 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Menu Modal -->
+<div class="modal fade" id="deleteMenuModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
+            <div class="modal-body p-4 text-center">
+                <h5 class="fw-bold mb-3">Delete Menu?</h5>
+                <p class="text-muted small mb-4">This will permanently remove this menu configuration. Items and categories will remain.</p>
+                {% if selected_menu %}
+                <form action="{{ url_for('admin.menu_delete_menu', menu_id=selected_menu.id) }}" method="POST">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger rounded-pill fw-bold">Yes, Delete</button>
+                        <button type="button" class="btn btn-light rounded-pill fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

@@ -271,3 +271,9 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--primary-color) !important;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
+
+/* Fix for outline buttons text color when active/checked */
+.btn-check:checked + .btn-outline-primary,
+.btn-outline-primary.active {
+    color: white !important;
+}
