@@ -249,8 +249,7 @@
                 <h5 class="modal-title fw-bold">Add Category</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.menu_categories') }}" method="POST">
-                <input type="hidden" name="return_to" value="{{ request.url }}">
+            <form id="quick-add-category-form">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Name</label>
@@ -269,7 +268,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="submit" class="btn btn-primary w-100 rounded-pill">Create</button>
+                    <button type="button" class="btn btn-primary w-100 rounded-pill" onclick="quickAddCategory()">Create</button>
                 </div>
             </form>
         </div>
@@ -325,6 +324,62 @@
 
 {% block scripts %}
 <script>
+function quickAddCategory() {
+    const form = document.getElementById('quick-add-category-form');
+    const formData = new FormData(form);
+    const createButton = form.querySelector('button');
+    
+    // Add a flag to indicate this is an AJAX request
+    formData.append('is_ajax', '1');
+    createButton.disabled = true;
+    createButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating...';
+
+    fetch("{{ url_for('admin.menu_categories') }}", {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Find the container for category checkboxes
+            const categoryContainer = document.querySelector('#edit-item-form .d-flex.flex-wrap.gap-2');
+            
+            // Create new checkbox and label
+            const newCategoryId = `cat${data.category.id}`;
+            const newCheckbox = document.createElement('input');
+            newCheckbox.type = 'checkbox';
+            newCheckbox.className = 'btn-check';
+            newCheckbox.name = 'categories';
+            newCheckbox.id = newCategoryId;
+            newCheckbox.value = data.category.id;
+            newCheckbox.checked = true; // Check it by default
+            
+            const newLabel = document.createElement('label');
+            newLabel.className = 'btn btn-outline-secondary btn-sm rounded-pill';
+            newLabel.htmlFor = newCategoryId;
+            newLabel.textContent = data.category.name;
+            
+            const addButton = categoryContainer.querySelector('button[data-bs-toggle="modal"]');
+            categoryContainer.insertBefore(newCheckbox, addButton);
+            categoryContainer.insertBefore(newLabel, addButton);
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
+            modal.hide();
+            form.reset();
+        } else {
+            alert('Error: ' + (data.message || 'Could not add category.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An unexpected error occurred.');
+    })
+    .finally(() => {
+        createButton.disabled = false;
+        createButton.innerHTML = 'Create';
+    });
+}
+
 function previewImage(input) {
     if (input.files && input.files[0]) {
         var reader = new FileReader();

@@ -559,7 +559,18 @@ def menu_categories():
     if request.method == 'POST':
         name = request.form.get('name')
         menu_ids = request.form.getlist('menu_ids')
+        is_ajax = request.form.get('is_ajax') == '1'
+
         if name:
+            # Check for duplicates
+            existing = Category.query.filter_by(name=name, restaurant_id=current_user.restaurant_id).first()
+            if existing:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': 'A category with this name already exists.'}), 400
+                else:
+                    flash('A category with this name already exists.', 'danger')
+                    return redirect(request.referrer or url_for('admin.menu_categories'))
+
             new_category = Category(name=name, restaurant_id=current_user.restaurant_id)
             for m_id in menu_ids:
                 menu = db.session.get(Menu, m_id)
@@ -567,16 +578,30 @@ def menu_categories():
                     new_category.menus.append(menu)
             db.session.add(new_category)
             db.session.commit()
+
+            if is_ajax:
+                return jsonify({
+                    'success': True, 
+                    'message': 'Category added successfully.',
+                    'category': {
+                        'id': new_category.id,
+                        'name': new_category.name
+                    }
+                })
+
             flash('Category added successfully.')
             
             # If returning to another page (e.g. item edit), honor that
             return_to = request.form.get('return_to')
             if return_to:
                 return redirect(return_to)
-            
+
             # Otherwise go to the new category in the list
             return redirect(url_for('admin.menu_categories', category_id=new_category.id))
         
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Category name is required.'}), 400
+
         return_to = request.form.get('return_to')
         if return_to:
             return redirect(return_to)
