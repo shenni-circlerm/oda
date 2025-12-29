@@ -174,6 +174,7 @@ class OrderItem(db.Model):
     menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_item.id'))
     quantity = db.Column(db.Integer, default=1)
     status = db.Column(db.String(20), default='pending') # 'pending', 'preparing', 'ready'
+    notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     menu_item = db.relationship('MenuItem')
 

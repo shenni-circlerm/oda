@@ -604,42 +604,49 @@ def menu_categories():
         is_ajax = request.form.get('is_ajax') == '1'
 
         if name:
-            # Check for duplicates
-            existing = Category.query.filter_by(name=name, restaurant_id=current_user.restaurant_id).first()
-            if existing:
+            try:
+                # Check for duplicates
+                existing = Category.query.filter_by(name=name, restaurant_id=current_user.restaurant_id).first()
+                if existing:
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': 'A category with this name already exists.'}), 400
+                    else:
+                        flash('A category with this name already exists.', 'danger')
+                        return redirect(request.referrer or url_for('admin.menu_categories'))
+
+                new_category = Category(name=name, restaurant_id=current_user.restaurant_id)
+                for m_id in menu_ids:
+                    menu = db.session.get(Menu, m_id)
+                    if menu:
+                        new_category.menus.append(menu)
+                db.session.add(new_category)
+                db.session.commit()
+
                 if is_ajax:
-                    return jsonify({'success': False, 'message': 'A category with this name already exists.'}), 400
-                else:
-                    flash('A category with this name already exists.', 'danger')
-                    return redirect(request.referrer or url_for('admin.menu_categories'))
+                    return jsonify({
+                        'success': True, 
+                        'message': 'Category added successfully.',
+                        'category': {
+                            'id': new_category.id,
+                            'name': new_category.name
+                        }
+                    })
 
-            new_category = Category(name=name, restaurant_id=current_user.restaurant_id)
-            for m_id in menu_ids:
-                menu = db.session.get(Menu, m_id)
-                if menu:
-                    new_category.menus.append(menu)
-            db.session.add(new_category)
-            db.session.commit()
+                flash('Category added successfully.')
+                
+                # If returning to another page (e.g. item edit), honor that
+                return_to = request.form.get('return_to')
+                if return_to:
+                    return redirect(return_to)
 
-            if is_ajax:
-                return jsonify({
-                    'success': True, 
-                    'message': 'Category added successfully.',
-                    'category': {
-                        'id': new_category.id,
-                        'name': new_category.name
-                    }
-                })
-
-            flash('Category added successfully.')
-            
-            # If returning to another page (e.g. item edit), honor that
-            return_to = request.form.get('return_to')
-            if return_to:
-                return redirect(return_to)
-
-            # Otherwise go to the new category in the list
-            return redirect(url_for('admin.menu_categories', category_id=new_category.id))
+                # Otherwise go to the new category in the list
+                return redirect(url_for('admin.menu_categories', category_id=new_category.id))
+            except Exception as e:
+                db.session.rollback()
+                if is_ajax:
+                    return jsonify({'success': False, 'message': str(e)}), 500
+                flash(f'Error adding category: {str(e)}', 'danger')
+                return redirect(url_for('admin.menu_categories'))
         
         if is_ajax:
             return jsonify({'success': False, 'message': 'Category name is required.'}), 400
@@ -1030,44 +1037,25 @@ def storefront_tables():
         # Find active order for this table
         order = next((o for o in active_orders if o.table_id == table.id), None)
         
-        state = {
-            'items_count': 0,
-            'total': 0.0,
-            'payment_status': '',
-            'order_id': None
-        }
+        state = {}
         
-        # Priority 1: Manual override for maintenance
+        # Determine table status based on a priority system
         if table.status == 'maintenance':
             state['status'] = 'Not Available'
             state['color'] = 'dark'
-        # Priority 2: Active Order exists
+        elif table.reservation_info and table.reservation_info.get('name'):
+            state['status'] = 'Not Available'
+            state['color'] = 'info' # Reserved
         elif order:
-            state['order_id'] = order.id
-            state['items_count'] = len(order.items)
-            state['total'] = sum(item.menu_item.price for item in order.items)
-            
-            if order.status == 'paid':
-                state['status'] = 'Paid'
-                state['color'] = 'primary' # Blue
-                state['payment_status'] = 'PAID'
-            elif order.status == 'completed':
-                state['status'] = 'Ready to clear'
-                state['color'] = 'light' # White/Grey
-                state['payment_status'] = 'PAID'
+            if order.status in ['paid', 'completed']:
+                state['status'] = 'Not Available' # Needs clearing
+                state['color'] = 'primary'
             else:
-                state['status'] = 'Ordered'
-                state['color'] = 'warning' # Yellow
-                state['payment_status'] = 'UNPAID'
-        # Priority 3: Manual override for occupied
+                state['status'] = 'Occupied'
+                state['color'] = 'warning'
         elif table.status == 'occupied':
             state['status'] = 'Occupied'
             state['color'] = 'secondary'
-        # Priority 4: Reservation exists
-        elif table.reservation_info and table.reservation_info.get('name'):
-            state['status'] = 'Booked'
-            state['color'] = 'info'
-        # Priority 5: Default is available
         else:
             state['status'] = 'Available'
             state['color'] = 'success' # Green
@@ -1184,16 +1172,23 @@ def storefront_orders():
         
         if action == 'add_item':
             menu_item_id = request.form.get('menu_item_id')
+            notes = request.form.get('notes')
+            quantity = int(request.form.get('quantity', 1))
             if order_id and menu_item_id:
-                # Check if item already exists in order
-                existing_item = OrderItem.query.filter_by(order_id=order_id, menu_item_id=menu_item_id).first()
+                # Only merge if notes are identical (or both are None/empty)
+                existing_item = OrderItem.query.filter_by(order_id=order_id, menu_item_id=menu_item_id, notes=notes if notes else None).first()
                 if existing_item:
-                    existing_item.quantity += 1
+                    existing_item.quantity += quantity
                     flash('Item quantity updated.')
                 else:
                     order = Order.query.filter_by(id=order_id, restaurant_id=restaurant.id).first()
                     if order:
-                        new_item = OrderItem(order_id=order.id, menu_item_id=menu_item_id, quantity=1)
+                        new_item = OrderItem(
+                            order_id=order.id, 
+                            menu_item_id=menu_item_id, 
+                            quantity=quantity,
+                            notes=notes
+                        )
                         db.session.add(new_item)
                         flash('Item added to order.')
                 db.session.commit()
@@ -1207,8 +1202,26 @@ def storefront_orders():
                     db.session.commit()
                     flash('Item removed.')
         
+        elif action == 'update_status':
+            status = request.form.get('status')
+            if order_id and status:
+                order = Order.query.get(order_id)
+                if order and order.restaurant_id == restaurant.id:
+                    order.status = status
+                    db.session.commit()
+                    flash(f'Order status updated to {status}.')
+        
         elif action == 'create_order':
             table_id = request.form.get('table_id')
+            table_number = request.form.get('table_number')
+            
+            if not table_id and table_number:
+                table = Table.query.filter_by(restaurant_id=restaurant.id, number=table_number).first()
+                if table:
+                    table_id = table.id
+                else:
+                    flash(f'Table {table_number} not found.', 'danger')
+            
             if table_id:
                 blocking_statuses = ['pending', 'preparing', 'ready', 'served']
                 existing_order = Order.query.filter_by(
@@ -1234,6 +1247,15 @@ def storefront_orders():
         
         elif action == 'move_table':
             new_table_id = request.form.get('new_table_id')
+            new_table_number = request.form.get('new_table_number')
+            
+            if not new_table_id and new_table_number:
+                table = Table.query.filter_by(restaurant_id=restaurant.id, number=new_table_number).first()
+                if table:
+                    new_table_id = table.id
+                else:
+                    flash(f'Table {new_table_number} not found.', 'danger')
+
             if order_id and new_table_id:
                 # Verify target table is empty (double check)
                 target_has_order = Order.query.filter_by(
@@ -1310,7 +1332,7 @@ def storefront_orders():
                     except ValueError:
                         flash('Invalid quantity.', 'danger')
                     db.session.commit()
-                    flash(f'{items_added_count} item(s) added to the order.')
+                    flash('Item quantity updated.')
         
         return redirect(url_for('admin.storefront_orders', order_id=order_id))
 
@@ -1339,7 +1361,12 @@ def storefront_orders():
     if not selected_order and orders:
         selected_order = orders[0]
 
-    return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables)
+    categories = Category.query.filter_by(restaurant_id=restaurant.id, is_active=True).options(
+        selectinload(Category.items)
+    ).order_by(Category.name).all()
+
+
+    return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables, categories=categories)
 
 @admin_bp.route('/storefront/payment/<int:order_id>', methods=['GET', 'POST'])
 @login_required

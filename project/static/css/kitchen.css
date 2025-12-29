@@ -277,3 +277,8 @@ h1, h2, h3, h4, h5, h6 {
 .btn-outline-primary.active {
     color: white !important;
 }
+
+/* Prevent input groups (like quantity selectors) from wrapping */
+.input-group {
+    flex-wrap: nowrap;
+}

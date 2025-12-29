@@ -250,26 +250,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.message || 'Server Error'); });
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     // Close modal
                     const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
                     modal.hide();
                     
-                    // Reload page to show new category (or append to DOM if preferred, but reload ensures consistency)
-                    // However, user specifically asked to NOT wipe off unsaved info. 
-                    // So we must append to DOM without reload.
-                    
-                    // For now, we simply alert success so user can save their work, then refresh manually if needed,
-                    // or we can implement full DOM appending. Given the constraint, let's just notify.
-                    alert('Category added successfully! You can continue editing.');
+                    // Append to sidebar list dynamically
+                    const sidebarList = document.querySelector('.category-sidebar .overflow-auto');
+                    const newLink = document.createElement('a');
+                    const baseUrl = this.action.split('?')[0];
+                    newLink.href = `${baseUrl}?category_id=${data.category.id}`;
+                    newLink.className = 'list-group-item list-group-item-action category-item';
+                    newLink.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">${data.category.name}</div>
+                                <div class="smallest opacity-75">0 Items</div>
+                            </div>
+                        </div>
+                    `;
+                    sidebarList.appendChild(newLink);
+                    newLink.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
                     this.reset();
                 } else {
                     alert(data.message || 'Error adding category');
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('Error:', error);
+                alert(error.message || 'An error occurred. Please try again.');
+            });
         });
     }
 });

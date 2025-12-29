@@ -136,16 +136,10 @@
                      onclick="window.location.href='{{ url_for('admin.storefront_orders', order_id=order.id) }}'">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <span class="fw-bold">Order #{{ (order.id|string)[-4:]|upper }}</span>
-                            <div class="small text-muted">Table {{ order.table.number }}</div>
+                            <span class="fw-bold">Table {{ order.table_number }}</span>
+                            <div class="small text-muted">#{{ (order.id|string)[-4:]|upper }} • {{ order.created_at.strftime('%H:%M') }}</div>
                         </div>
                         <span class="status-dot dot-{{ order.status }}"></span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <span class="badge bg-light text-dark border">{{ order.status|title }}</span>
-                        {% if order.status in ['pending', 'preparing'] %}
-                        <span class="timer small text-danger" data-timestamp="{{ order.created_at.isoformat() }}Z"><i class="bi bi-clock"></i> ...</span>
-                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -168,8 +162,45 @@
                     </div>
                     
                     <div class="d-flex gap-2">
-                        <div class="btn btn-light border px-3">
-                            Status: <span class="text-capitalize fw-bold text-primary">{{ selected_order.status }}</span>
+                        <div class="dropdown">
+                            <button class="btn btn-light border dropdown-toggle px-3" type="button" data-bs-toggle="dropdown">
+                                Status: <span class="text-capitalize fw-bold text-primary">{{ selected_order.status }}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                <li>
+                                    <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                                        <input type="hidden" name="action" value="update_status">
+                                        <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                                        <input type="hidden" name="status" value="pending">
+                                        <button type="submit" class="dropdown-item">Mark as Pending</button>
+                                    </form>
+                                </li>
+                                <li>
+                                    <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                                        <input type="hidden" name="action" value="update_status">
+                                        <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                                        <input type="hidden" name="status" value="preparing">
+                                        <button type="submit" class="dropdown-item">Mark as Preparing</button>
+                                    </form>
+                                </li>
+                                <li>
+                                    <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                                        <input type="hidden" name="action" value="update_status">
+                                        <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                                        <input type="hidden" name="status" value="ready">
+                                        <button type="submit" class="dropdown-item text-success fw-bold">Ready for Pickup</button>
+                                    </form>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                                        <input type="hidden" name="action" value="update_status">
+                                        <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                                        <input type="hidden" name="status" value="completed">
+                                        <button type="submit" class="dropdown-item text-muted">Complete / Paid</button>
+                                    </form>
+                                </li>
+                            </ul>
                         </div>
                         
                         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
@@ -211,21 +242,6 @@
                             <span class="h3 mb-0 fw-bold text-primary">${{ "%.2f"|format(total.value) }}</span>
                         </div>
                     </div>
-                </div>
-
-                <div class="d-flex gap-2 justify-content-end">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="window.print()">
-                        <i class="bi bi-printer me-2"></i>Print Order
-                    </button>
-                    {% if selected_order.status == 'paid' %}
-                        <button class="btn btn-success rounded-pill px-5 fw-bold" disabled>
-                            <i class="bi bi-check-circle-fill me-2"></i>Paid
-                        </button>
-                    {% else %}
-                        <a href="{{ url_for('admin.storefront_payment', order_id=selected_order.id) }}" class="btn btn-primary rounded-pill px-5 fw-bold">
-                            <i class="bi bi-credit-card me-2"></i>Pay
-                        </a>
-                    {% endif %}
                 </div>
             </div>
             {% else %}
@@ -399,21 +415,6 @@
         if (input) input.value = Math.max(0, (parseInt(input.value) || 0) + change);
     }
 
-    function updateElapsedTimes() {
-        document.querySelectorAll('.timer').forEach(el => {
-            const timestamp = el.dataset.timestamp;
-            if (timestamp) {
-                const startTime = new Date(timestamp);
-                const now = new Date();
-                const diff = Math.floor((now - startTime) / 1000);
-                if (diff < 0) return;
-                const minutes = Math.floor(diff / 60);
-                const seconds = diff % 60;
-                el.innerHTML = `<i class="bi bi-clock me-1"></i>${minutes}m ${seconds.toString().padStart(2, '0')}s`;
-            }
-        });
-    }
-
     function filterItems() {
         const searchTerm = document.getElementById('item-search-input').value.toLowerCase().trim();
         const activeFilterBtn = document.querySelector('#category-filter-pills .btn-primary');
@@ -441,9 +442,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        updateElapsedTimes(); 
-        setInterval(updateElapsedTimes, 1000);
-
         const searchInput = document.getElementById('item-search-input');
         if (searchInput) {
             searchInput.addEventListener('input', filterItems);
