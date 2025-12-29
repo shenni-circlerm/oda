@@ -33,6 +33,7 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(255), nullable=True)
     role = db.Column(db.String(20)) # 'admin' or 'staff'
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    password_version = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     restaurant = db.relationship('Restaurant', backref='users')
     is_active = db.Column(db.Boolean, default=False, nullable=False)
@@ -47,19 +48,24 @@ class User(UserMixin, db.Model):
 
     def get_token(self, salt, expires_sec=1800):
         s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=salt)
-        return s.dumps({'user_id': self.id})
+        return s.dumps({'user_id': self.id, 'pw_version': self.password_version})
 
     @staticmethod
     def verify_token(token, salt, expires_sec=1800):
         s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=salt)
         try:
-            user_id = s.loads(
+            data = s.loads(
                 token,
                 max_age=expires_sec
-            )['user_id']
+            )
+            user_id = data['user_id']
+            token_pw_version = data['pw_version']
         except Exception:
             return None
-        return db.session.get(User, user_id)
+        user = db.session.get(User, user_id)
+        if user and user.password_version == token_pw_version:
+            return user
+        return None
 
 menu_category_association = db.Table('menu_category_association',
     db.Column('menu_id', db.Integer, db.ForeignKey('menu.id'), primary_key=True),

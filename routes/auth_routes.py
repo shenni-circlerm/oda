@@ -55,6 +55,7 @@ def change_password():
             return redirect(url_for('auth.change_password'))
             
         current_user.password = generate_password_hash(new_password)
+        current_user.password_version += 1
         db.session.commit()
         flash('Password updated successfully.')
         if current_user.role == 'kitchen':
@@ -67,6 +68,12 @@ def change_password():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
+    # If a logged-in user visits a registration or invitation link, log them out first.
+    if current_user.is_authenticated:
+        logout_user()
+        flash('You have been logged out to complete this action.', 'info')
+        return redirect(request.url) # Redirect to the same URL to get a clean, logged-out state
+
     if request.method == 'GET':
         token = request.args.get('token')
         if token:
@@ -147,6 +154,12 @@ def register():
 
 @auth_bp.route('/accept-invitation/<token>', methods=['GET', 'POST'])
 def accept_invitation(token):
+    # If a logged-in user visits an invitation link, log them out first.
+    if current_user.is_authenticated:
+        logout_user()
+        flash('You have been logged out to accept the invitation.', 'info')
+        return redirect(url_for('auth.accept_invitation', token=token))
+
     user = User.verify_token(token, salt='staff-invitation', expires_sec=604800) # 7 days
     if not user:
         flash('The invitation link is invalid or has expired.')
@@ -168,6 +181,8 @@ def forgot_password():
         email = request.form.get('email')
         user = User.query.filter_by(email=email).first()
         if user:
+            user.password_version += 1
+            db.session.commit()
             token = user.get_token(salt='password-reset')
             send_email(
                 user.email,
@@ -191,12 +206,18 @@ def reset_password(token):
 
     if request.method == 'POST':
         password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        if password != confirm_password:
+            flash('Passwords do not match.', 'danger')
+            return render_template('reset_password.html', token=token, user=user)
+
         user.password = generate_password_hash(password)
+        user.password_version += 1
         db.session.commit()
         flash('Your password has been updated! You can now log in.')
-        return redirect(url_for('auth.login'))
+        return redirect(url_for('admin.landing'))
 
-    return render_template('reset_password.html', token=token)
+    return render_template('reset_password.html', token=token, user=user)
 
 @auth_bp.route('/verify-mfa', methods=['GET', 'POST'])
 def verify_mfa():
