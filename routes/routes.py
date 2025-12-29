@@ -765,8 +765,14 @@ def design_branding():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
     
     if request.method == 'POST':
-        restaurant.name = request.form.get('name')
+        name = request.form.get('name')
+        if name:
+            restaurant.name = name
         restaurant.tagline = request.form.get('tagline')
+        
+        brand_color = request.form.get('primary_color')
+        if brand_color:
+            restaurant.brand_color = brand_color
         
         logo = request.files.get('logo')
         if logo and logo.filename != '':
