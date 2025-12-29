@@ -2,349 +2,248 @@
 
 {% block title %}Active Orders{% endblock %}
 
+{% block styles %}
+<style>
+    /* Layout Adjustments */
+    .orders-wrapper {
+        height: calc(100vh - 64px); /* Subtracting navbar height */
+        overflow: hidden;
+    }
+
+    /* Left Sidebar: Order List */
+    .order-list-pane {
+        background: var(--bg-light);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .order-list-scroll {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 12px;
+    }
+
+    /* Order Card Styling */
+    .order-item-card {
+        background: var(--surface);
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(0,0,0,0.05);
+        margin-bottom: 12px;
+        padding: 16px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .order-item-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        background: #fafafa;
+    }
+
+    .order-item-card.active {
+        border: 2px solid var(--primary-color);
+        background: #f5f3ff;
+    }
+
+    /* Modern Status Indicators */
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    .dot-pending { background-color: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+    .dot-preparing { background-color: #3b82f6; box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
+    .dot-ready { background-color: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+
+    /* Right Side: Order Detail */
+    .detail-pane {
+        background-color: #f8fafc;
+        padding: 24px;
+        overflow-y: auto;
+        height: 100%;
+    }
+
+    .order-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+    }
+
+    .item-row {
+        padding: 16px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .item-row:last-child { border-bottom: none; }
+
+    /* Empty State Illustration */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        opacity: 0.6;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: var(--text-muted);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="row h-100">
-        <!-- Left Column: Order List -->
-        <div class="col-md-4 col-lg-3 border-end bg-white p-0" style="min-height: calc(100vh - 100px);">
-            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
+<div class="container-fluid p-0">
+    <div class="row g-0 orders-wrapper">
+        <!-- Left Column -->
+        <div class="col-md-4 col-lg-3 order-list-pane border-end">
+            <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center">
                 <h5 class="fw-bold mb-0">Active Orders</h5>
-                <button class="btn btn-sm btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#newOrderModal">
-                    <i class="bi bi-plus-lg"></i> New Order
+                <button class="btn btn-sm btn-primary rounded-circle" style="width: 32px; height: 32px; padding: 0;" data-bs-toggle="modal" data-bs-target="#newOrderModal">
+                    <i class="bi bi-plus"></i>
                 </button>
             </div>
-            <div class="p-2 border-bottom bg-light">
-                <div class="d-flex flex-wrap gap-1" id="order-status-filter">
-                    <div class="btn-group" role="group">
-                        <input type="checkbox" class="btn-check" id="filter-all" autocomplete="off" checked>
-                        <label class="btn btn-sm btn-outline-primary" for="filter-all">All</label>
-                    </div>
-                    <div class="btn-group" role="group">
-                        <input type="checkbox" class="btn-check" id="filter-pending" data-status-filter="pending" autocomplete="off" checked>
-                        <label class="btn btn-sm btn-outline-secondary" for="filter-pending">Pending</label>
-                    </div>
-                    <div class="btn-group" role="group">
-                        <input type="checkbox" class="btn-check" id="filter-preparing" data-status-filter="preparing" autocomplete="off" checked>
-                        <label class="btn btn-sm btn-outline-secondary" for="filter-preparing">Preparing</label>
-                    </div>
-                    <div class="btn-group" role="group">
-                        <input type="checkbox" class="btn-check" id="filter-ready" data-status-filter="ready" autocomplete="off" checked>
-                        <label class="btn btn-sm btn-outline-secondary" for="filter-ready">Ready</label>
-                    </div>
-                    <div class="btn-group" role="group">
-                        <input type="checkbox" class="btn-check" id="filter-served" data-status-filter="served" autocomplete="off" checked>
-                        <label class="btn btn-sm btn-outline-secondary" for="filter-served">Served</label>
-                    </div>
-                    <div class="btn-group" role="group">
-                        <input type="checkbox" class="btn-check" id="filter-paid" data-status-filter="paid" autocomplete="off" checked>
-                        <label class="btn btn-sm btn-outline-secondary" for="filter-paid">Paid</label>
-                    </div>
+            
+            <div class="p-2 border-bottom bg-white">
+                <div class="d-flex gap-1 overflow-auto pb-1" id="order-status-filter">
+                    <input type="checkbox" class="btn-check" id="filter-all" checked>
+                    <label class="btn btn-xs btn-outline-secondary rounded-pill" for="filter-all">All</label>
+                    
+                    <input type="checkbox" class="btn-check" id="filter-pending" data-status-filter="pending">
+                    <label class="btn btn-xs btn-outline-warning rounded-pill" for="filter-pending">Pending</label>
+                    
+                    <input type="checkbox" class="btn-check" id="filter-preparing" data-status-filter="preparing">
+                    <label class="btn btn-xs btn-outline-primary rounded-pill" for="filter-preparing">Prep</label>
                 </div>
             </div>
-            <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 205px);">
-                {% for order in orders %}
-                {% set status_colors = {
-                    'pending': 'warning', 'preparing': 'info', 'ready': 'success', 
-                    'served': 'primary', 'paid': 'secondary'
-                } %}
-                <a href="{{ url_for('admin.storefront_orders', order_id=order.id) }}" 
-                   class="list-group-item list-group-item-action py-3 border-0 order-list-item {% if selected_order and selected_order.id == order.id %}bg-secondary bg-opacity-10{% endif %}"
-                   data-status="{{ order.status }}">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <span class="fw-bold">Table {{ order.table.number }}</span>
-                        <span class="badge rounded-pill bg-{{ status_colors.get(order.status, 'light') }} text-dark">
-                            {{ order.status|title }}
-                        </span>
+
+            <div class="order-list-scroll">
+                {% if orders %}
+                    {% for order in orders %}
+                    <div class="order-item-card order-list-item {% if selected_order and selected_order.id == order.id %}active{% endif %}" 
+                         onclick="window.location.href='{{ url_for('admin.storefront_orders', order_id=order.id) }}'"
+                         data-status="{{ order.status }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="fw-bold text-dark">#{{ (order.id|string)[-4:]|upper }}</span>
+                                <div class="smallest text-muted">{{ order.created_at.strftime('%H:%M') }} • Table {{ order.table_number }}</div>
+                            </div>
+                            <span class="status-dot dot-{{ order.status }}"></span>
+                        </div>
+                        <div class="mt-2 d-flex justify-content-between align-items-center">
+                            <span class="smallest text-muted">{{ order.items|length }} items</span>
+                            {% set order_total = namespace(value=0) %}
+                            {% for item in order.items %}{% set order_total.value = order_total.value + (item.menu_item.price * item.quantity) %}{% endfor %}
+                            <span class="fw-bold text-dark">${{ "%.2f"|format(order_total.value) }}</span>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-end">
-                        <small class="text-muted">#{{ order.id }} &bull; {{ order.created_at.strftime('%H:%M') }}</small>
-                        <small class="fw-bold">{{ order.items|length }} items</small>
-                    </div>
-                </a>
+                    {% endfor %}
                 {% else %}
-                <div class="text-center py-5 text-muted">
-                    <p class="mb-0">No active orders.</p>
-                </div>
-                {% endfor %}
+                    <div class="p-4 text-center text-muted mt-5">
+                        <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                        <p class="small">No active orders right now.</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
 
-        <!-- Right Column: Order Details -->
-        <div class="col-md-8 col-lg-9 p-4 bg-light">
+        <!-- Right Column -->
+        <div class="col-md-8 col-lg-9 detail-pane">
             {% if selected_order %}
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="order-detail-container">
+                <!-- Header -->
+                <div class="p-4 border-bottom d-flex justify-content-between align-items-center bg-white">
                     <div>
-                        <h4 class="fw-bold mb-0">Order #{{ selected_order.id }}</h4>
-                        <span class="text-muted">Table {{ selected_order.table.number }}</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <h4 class="fw-bold mb-0">Order #{{ (selected_order.id|string)[-4:]|upper }}</h4>
+                            <span class="badge bg-light text-dark border rounded-pill">Table {{ selected_order.table_number }}</span>
+                        </div>
+                        <p class="text-muted small mb-0 mt-1">
+                            <i class="bi bi-clock me-1"></i> Received at {{ selected_order.created_at.strftime('%H:%M:%S') }}
+                        </p>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#addItemModal">
-                            <i class="bi bi-plus-lg me-2"></i>Add Item
+                    
+                    <div class="dropdown">
+                        <button class="btn btn-outline-dark dropdown-toggle rounded-pill px-4 shadow-sm" data-bs-toggle="dropdown">
+                            <span class="status-dot dot-{{ selected_order.status }}"></span>
+                            {{ selected_order.status|title }}
                         </button>
-                        <a href="{{ url_for('admin.storefront_payment', order_id=selected_order.id) }}" class="btn btn-success rounded-pill">
-                            <i class="bi bi-credit-card me-2"></i>Pay
-                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0">
+                            <li><h6 class="dropdown-header">Change Status</h6></li>
+                            <li><button class="dropdown-item py-2" onclick="updateStatus('pending')">Set to Pending</button></li>
+                            <li><button class="dropdown-item py-2" onclick="updateStatus('preparing')">Set to Preparing</button></li>
+                            <li><button class="dropdown-item py-2 text-success fw-bold" onclick="updateStatus('ready')">Mark as Ready</button></li>
+                        </ul>
                     </div>
                 </div>
-                <div class="card-body p-0 overflow-auto">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="bg-light sticky-top">
-                            <tr>
-                                <th class="ps-4">Item</th>
-                                <th class="text-end">Price</th>
-                                <th class="text-end pe-4" style="width: 50px;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% set ns = namespace(total=0) %}
-                            {% for item in selected_order.items %}
-                            {% set ns.total = ns.total + (item.menu_item.price * item.quantity) %}
-                            <tr>
-                                <td class="ps-4">
-                                    <div class="d-flex align-items-center">
-                                        <span class="badge bg-primary me-3">{{ item.quantity }}x</span>
-                                        <div>
-                                            <div class="fw-bold">{{ item.menu_item.name }}</div>
-                                            {% if item.menu_item.sku %}
-                                            <small class="text-muted">SKU: {{ item.menu_item.sku }}</small>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="text-end">${{ "%.2f"|format(item.menu_item.price * item.quantity) }}</td>
-                                <td class="text-end pe-4" style="width: 100px;">
-                                    <button type="button" class="btn btn-link text-primary p-0 btn-sm me-2" data-bs-toggle="modal" data-bs-target="#editItemModal{{ item.id }}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-link text-danger p-0 btn-sm" data-bs-toggle="modal" data-bs-target="#deleteItemModal{{ item.id }}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot class="bg-light border-top">
-                            <tr>
-                                <td class="ps-4 fw-bold">Total</td>
-                                <td class="text-end fw-bold">${{ "%.2f"|format(ns.total) }}</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
+
+                <!-- Body -->
+                <div class="p-4 bg-white">
+                    <h6 class="text-uppercase smallest fw-bold text-muted mb-4 ls-wide">Order Items</h6>
+                    <div class="item-list border rounded-3 overflow-hidden">
+                        {% for item in selected_order.items %}
+                        <div class="item-row">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-light rounded p-2 text-center me-3" style="min-width: 40px;">
+                                    <span class="fw-bold">{{ item.quantity }}</span>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ item.menu_item.name }}</div>
+                                    {% if item.notes %}
+                                    <div class="text-danger small"><i class="bi bi-info-circle me-1"></i>{{ item.notes }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold">${{ "%.2f"|format(item.menu_item.price * item.quantity) }}</div>
+                                <div class="smallest text-muted">${{ "%.2f"|format(item.menu_item.price) }} / unit</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mt-5 p-4 bg-light rounded-3">
+                        {% set selected_total = namespace(value=0) %}
+                        {% for item in selected_order.items %}{% set selected_total.value = selected_total.value + (item.menu_item.price * item.quantity) %}{% endfor %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Subtotal</span>
+                            <span class="fw-medium">${{ "%.2f"|format(selected_total.value) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <span class="fw-bold fs-5">Total Amount</span>
+                            <span class="fw-bold fs-3 text-primary">${{ "%.2f"|format(selected_total.value) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="p-3 bg-light border-top d-flex gap-3">
+                    <button class="btn btn-outline-dark px-4 py-2 flex-grow-1"><i class="bi bi-printer me-2"></i>Print Ticket</button>
+                    <button class="btn btn-success px-4 py-2 flex-grow-1"><i class="bi bi-check2-circle me-2"></i>Complete Order</button>
                 </div>
             </div>
             {% else %}
-            <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
-                <i class="bi bi-receipt fs-1 mb-3 opacity-25"></i>
-                <p>Select an order to view details.</p>
+            <div class="empty-state">
+                <i class="bi bi-receipt-cutoff empty-icon"></i>
+                <h4 class="fw-bold">Select an order</h4>
+                <p class="text-muted">Click on an order from the left sidebar to see full details and take action.</p>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
-
-<!-- Edit Item Modals -->
-{% if selected_order %}
-    {% for item in selected_order.items %}
-    <div class="modal fade" id="editItemModal{{ item.id }}" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">Edit Quantity</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <form method="POST" action="{{ url_for('admin.storefront_orders') }}">
-                        <input type="hidden" name="action" value="update_item_quantity">
-                        <input type="hidden" name="order_id" value="{{ selected_order.id }}">
-                        <input type="hidden" name="item_id" value="{{ item.id }}">
-                        <div class="mb-3">
-                            <label class="form-label text-muted">
-                                {{ item.menu_item.name }}
-                                {% if item.menu_item.sku %}<small>({{ item.menu_item.sku }})</small>{% endif %}
-                            </label>
-                            <div class="input-group">
-                                <button class="btn btn-outline-secondary" type="button" onclick="this.parentNode.querySelector('input').stepDown()">-</button>
-                                <input type="number" name="quantity" class="form-control text-center" value="{{ item.quantity }}" min="1" required>
-                                <button class="btn btn-outline-secondary" type="button" onclick="this.parentNode.querySelector('input').stepUp()">+</button>
-                            </div>
-                        </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary rounded-pill">Update</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-{% endif %}
-
-<!-- Delete Item Modals -->
-{% if selected_order %}
-    {% for item in selected_order.items %}
-    <div class="modal fade" id="deleteItemModal{{ item.id }}" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-body text-center p-4">
-                    <div class="text-danger mb-3" style="font-size: 3rem;"><i class="bi bi-exclamation-triangle"></i></div>
-                    <h5 class="fw-bold">Remove Item?</h5>
-                    <p class="text-muted">Are you sure you want to remove "{{ item.menu_item.name }}" from this order?</p>
-                    <div class="d-flex justify-content-center gap-2 mt-4">
-                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-                        <form method="POST" action="{{ url_for('admin.storefront_orders') }}" class="d-inline">
-                            <input type="hidden" name="action" value="remove_item">
-                            <input type="hidden" name="order_id" value="{{ selected_order.id }}">
-                            <input type="hidden" name="item_id" value="{{ item.id }}">
-                            <button type="submit" class="btn btn-danger rounded-pill px-4">Remove</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-{% endif %}
-
-<!-- Add Item Modal -->
-{% if selected_order %}
-<div class="modal fade" id="addItemModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-scrollable modal-lg">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('admin.storefront_orders') }}">
-                <div class="modal-header border-0 sticky-top bg-white">
-                    <h5 class="modal-title fw-bold">Add Items to Order #{{ selected_order.id }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="p-3 bg-white" style="position: sticky; top: 0; z-index: 10;">
-                        <input type="text" id="menu-item-search" class="form-control rounded-pill" placeholder="Search for items...">
-                    </div>
-                    <input type="hidden" name="action" value="add_multiple_items">
-                    <input type="hidden" name="order_id" value="{{ selected_order.id }}">
-                    <div class="list-group list-group-flush" id="menu-item-list-container">
-                        {% for item in menu_items %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center p-3 menu-item-filterable">
-                            <div>
-                                <div class="fw-bold item-name">{{ item.name }}</div>
-                                <small class="text-muted">
-                                    {% if item.sku %}SKU: {{ item.sku }} &bull; {% endif %}
-                                    ${{ "%.2f"|format(item.price) }}
-                                </small>
-                            </div>
-                            <div class="input-group" style="width: 120px;">
-                                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="this.nextElementSibling.stepDown()">-</button>
-                                <input type="number" name="quantity_{{ item.id }}" class="form-control form-control-sm text-center" value="0" min="0">
-                                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="this.previousElementSibling.stepUp()">+</button>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="text-center py-5">
-                            <i class="bi bi-journal-x fs-1 text-muted mb-2"></i>
-                            <p class="text-muted mb-3">No menu items found.</p>
-                            <a href="{{ url_for('admin.menu_manage_menu') }}" class="btn btn-sm btn-primary rounded-pill">Create one</a>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div class="modal-footer border-0 sticky-bottom bg-white">
-                    <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary rounded-pill">Add Items to Order</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- New Order Modal -->
-<div class="modal fade" id="newOrderModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold">Create New Order</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
-                <input type="hidden" name="action" value="create_order">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Select an Available Table</label>
-                        <select name="table_id" class="form-select" required>
-                            <option value="" disabled selected>Choose a table...</option>
-                            {% for table in available_tables %}
-                            <option value="{{ table.id }}">Table {{ table.number }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Order</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('menu-item-search');
-    if (searchInput) {
-        searchInput.addEventListener('keyup', function() {
-            const filter = searchInput.value.toLowerCase();
-            const items = document.querySelectorAll('#menu-item-list-container .menu-item-filterable');
-            items.forEach(function(item) {
-                const name = item.querySelector('.item-name').textContent.toLowerCase();
-                if (name.includes(filter)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-    }
-
-    // Order status filter
-    const filterContainer = document.getElementById('order-status-filter');
-    const allCheckbox = document.getElementById('filter-all');
-    const statusCheckboxes = filterContainer ? filterContainer.querySelectorAll('.btn-check:not(#filter-all)') : [];
-
-    function applyOrderStatusFilter() {
-        const orderItems = document.querySelectorAll('.order-list-item');
-        const showAll = allCheckbox.checked;
-        const selectedStatuses = new Set();
-
-        if (!showAll) {
-            statusCheckboxes.forEach(cb => {
-                if (cb.checked) {
-                    selectedStatuses.add(cb.dataset.statusFilter);
-                }
-            });
-        }
-
-        orderItems.forEach(item => {
-            const itemStatus = item.dataset.status;
-            item.style.display = (showAll || selectedStatuses.has(itemStatus)) ? 'block' : 'none';
-        });
-    }
-
-    if (allCheckbox) {
-        allCheckbox.addEventListener('change', function() {
-            statusCheckboxes.forEach(cb => cb.checked = this.checked);
-            applyOrderStatusFilter();
-        });
-    }
-
-    statusCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            allCheckbox.checked = [...statusCheckboxes].every(cb => cb.checked);
-            applyOrderStatusFilter();
-        });
-    });
-});
-</script>
 {% endblock %}

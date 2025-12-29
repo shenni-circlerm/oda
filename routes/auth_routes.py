@@ -147,7 +147,7 @@ def register():
         login_user(new_admin)
         
         session['current_view'] = 'online_store'
-        flash("Account created! You can now log in.")
+        flash("Account created! Welcome.")
         return redirect(url_for('admin.design_branding'))
 
     return render_template('register.html')

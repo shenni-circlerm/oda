@@ -1,50 +1,22 @@
 {% extends "base.html" %}
 
-{% block title %}Design Store{% endblock %}
+{% block title %}Interface Design{% endblock %}
 
 {% block styles %}
 <style>
-  /* Split Layout */
-  .design-container {
-    height: calc(100vh - 100px); /* Adjust based on top bar height */
-    overflow: hidden;
-  }
-  .preview-pane {
-    background-color: #f0f2f5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-right: 1px solid #dee2e6;
-  }
-  .config-pane {
-    background-color: #fff;
-    overflow-y: auto;
-  }
-  /* Phone Mockup */
-  .phone-mockup {
-    width: 375px;
-    height: 667px;
+  .mock-status-bar {
+    height: 24px;
     background: #fff;
-    border: 12px solid #333;
-    border-radius: 30px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-    position: relative;
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    padding: 0 20px;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
   }
-  .phone-header {
-    height: 25px;
-    background: #333;
-    width: 100%;
-    position: absolute;
-    top: 0;
-    z-index: 10;
-    border-radius: 18px 18px 0 0;
-  }
-  .phone-screen {
+
+  .screen-content {
     flex: 1;
-    padding-top: 30px;
     overflow-y: auto;
     background: #fff;
   }
@@ -52,63 +24,72 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid p-0">
-  <div class="row g-0 design-container">
-    <!-- Left Column: Preview -->
-    <div class="col-md-8 preview-pane">
-      <div class="phone-mockup">
-        <div class="phone-header"></div>
-        <div class="phone-screen" id="preview-screen">
-          <!-- Live preview will be rendered here by JavaScript -->
-        </div>
-      </div>
+<div class="design-container row g-0">
+  <!-- Config -->
+  <div class="col-lg-5 config-pane">
+    <div class="mb-4">
+        <h2 class="fw-bold">Copy & Content</h2>
+        <p class="text-muted">Edit the messages customers see during their journey.</p>
     </div>
 
-    <!-- Right Column: Configuration -->
-    <div class="col-md-4 config-pane">
-      <div class="p-4">
-        <h4 class="fw-bold mb-4">Store Pages</h4>
-        <form method="POST">
-          <div class="accordion" id="designAccordion">
-            {% for key, page in config.items() %}
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded overflow-hidden">
-              <h2 class="accordion-header" id="heading{{ key }}">
-                <button class="accordion-button {% if not loop.first %}collapsed{% endif %} bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ key }}">
-                  <div class="d-flex align-items-center w-100 me-3">
-                    <div class="form-check form-switch me-3">
-                      <input class="form-check-input fs-5" type="checkbox" name="{{ key }}_enabled" {% if page.enabled %}checked{% endif %} onclick="event.stopPropagation()">
-                    </div>
-                    <span class="fw-bold">{{ page.label }}</span>
-                  </div>
-                </button>
-              </h2>
-              <div id="collapse{{ key }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#designAccordion">
-                <div class="accordion-body bg-light">
-                  {% for element in page.elements %}
-                  <div class="mb-3">
-                    {% if element.type == 'checkbox' %}
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" name="{{ key }}_{{ element.key }}" id="{{ key }}_{{ element.key }}" {% if element.value %}checked{% endif %}>
-                      <label class="form-check-label" for="{{ key }}_{{ element.key }}">
-                        {{ element.label }}
-                      </label>
-                    </div>
-                    {% else %}
-                    <label class="form-label small text-muted">{{ element.label }}</label>
-                    <input type="text" class="form-control form-control-sm" name="{{ key }}_{{ element.key }}" value="{{ element.value }}">
-                    {% endif %}
-                  </div>
-                  {% endfor %}
-                </div>
+    <form method="POST">
+      <div class="accordion accordion-flush" id="pagesAccordion">
+        <!-- Order Confirmation -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfirmation">
+              Order Confirmation Page
+            </button>
+          </h2>
+          <div id="collapseConfirmation" class="accordion-collapse collapse show" data-bs-parent="#pagesAccordion">
+            <div class="accordion-body px-0">
+              <label class="form-label small fw-bold text-muted">Thank You Message</label>
+              <textarea name="thank_you_message" class="form-control mb-3" rows="3">{{ config.thank_you_message }}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Status -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStatus">
+              Live Status Updates
+            </button>
+          </h2>
+          <div id="collapseStatus" class="accordion-collapse collapse" data-bs-parent="#pagesAccordion">
+            <div class="accordion-body px-0">
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="status_order_number" {% if config.status_order_number %}checked{% endif %}>
+                <label class="form-check-label">Show Order Number</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="status_live_status" {% if config.status_live_status %}checked{% endif %}>
+                <label class="form-check-label">Enable Live Progress Bar</label>
               </div>
             </div>
-            {% endfor %}
           </div>
+        </div>
+      </div>
 
-          <div class="d-grid mt-4">
-            <button type="submit" class="btn btn-primary btn-lg">Save Changes</button>
-          </div>
-        </form>
+      <button type="submit" class="btn btn-primary w-100 mt-5 py-3 rounded-pill">
+        Save All Pages
+      </button>
+    </form>
+  </div>
+
+  <!-- Preview -->
+  <div class="col-lg-7 preview-pane">
+    <div class="mobile-mockup">
+      <div class="mock-status-bar">
+        <span>9:41</span>
+        <div>
+          <i class="bi bi-reception-4"></i>
+          <i class="bi bi-wifi mx-1"></i>
+          <i class="bi bi-battery-full"></i>
+        </div>
+      </div>
+      <div id="preview-screen" class="screen-content">
+        <!-- Injected via JS -->
       </div>
     </div>
   </div>
@@ -117,102 +98,50 @@
 
 {% block scripts %}
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
     const previewScreen = document.getElementById('preview-screen');
     const form = document.querySelector('form');
 
-    const getVal = (name) => {
-      const el = document.querySelector(`[name="${name}"]`);
-      if (!el) return '';
-      return el.type === 'checkbox' ? el.checked : el.value;
-    };
-
     const renderers = {
-      'welcome': () => `
-        <div class="text-center p-4 bg-white rounded shadow-sm" style="margin-top: 50px;">
-          ${getVal('welcome_restaurant_name') ? '<h1 class="fw-bold">Restaurant Name</h1>' : ''}
-          <p class="lead text-muted">Tagline Here</p>
-          <hr>
-          <p class="fw-bold">How would you like to order?</p>
-          <div class="d-grid gap-2 col-8 mx-auto">
-            <button class="btn btn-primary btn-lg">${getVal('welcome_start_label')}</button>
-            <button class="btn btn-secondary btn-lg">Take-Away</button>
-          </div>
-        </div>`,
-      'menu': () => {
-        let html = '<div class="p-3">';
-        if (getVal('menu_categories')) {
-          html += `<div class="d-flex gap-2 overflow-auto py-2 mb-3" style="background: #fff; z-index: 11;">
-                     <button class="btn btn-primary active">All</button>
-                     <button class="btn btn-outline-secondary">Starters</button>
-                   </div>`;
-        }
-        if (getVal('menu_items')) {
-          html += `<div class="card border-0 shadow-sm mb-3">
-                     <div class="row g-0"><div class="col-8"><div class="card-body">
-                       <h5 class="card-title fw-bold">Burger</h5>
-                       <p class="card-text fs-5 fw-bold text-primary">$12.00</p>
-                     </div></div><div class="col-4"><div class="bg-light h-100"></div></div></div>
-                   </div>`;
-        }
-        html += '</div>';
-        return html;
-      },
-      'cart': () => `
-        <div class="p-3">
-          <h4 class="fw-bold">Review Order</h4>
-          <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
-            <div><h6 class="mb-0">Burger</h6><small class="text-muted">$12.00</small></div>
-            ${getVal('cart_show_qty') ? '<div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-light border">-</button><span>1</span><button class="btn btn-sm btn-light border">+</button></div>' : ''}
-            ${getVal('cart_allow_remove') ? '<i class="bi bi-trash text-danger"></i>' : ''}
-          </div>
-          <div class="d-flex justify-content-between fw-bold fs-5 mb-3">
-            <span>${getVal('cart_total_label')}</span><span>$12.00</span>
-          </div>
-        </div>`,
-      'checkout': () => `
-        <div class="p-3">
-          <h4 class="fw-bold">Checkout</h4>
-          ${getVal('checkout_confirm_table') ? '<div class="mb-3"><label class="form-label small">Table</label><input type="text" class="form-control" value="5" readonly></div>' : ''}
-          ${getVal('checkout_allow_notes') ? '<div class="mb-3"><label class="form-label small">Notes</label><textarea class="form-control"></textarea></div>' : ''}
-          <button class="btn btn-success w-100 mt-3">${getVal('checkout_place_order_label')}</button>
-        </div>`,
-      'thank_you': () => `
-        <div class="text-center p-4">
-          <div class="text-success mb-3" style="font-size: 4rem;"><i class="bi bi-check-circle-fill"></i></div>
-          <h3 class="fw-bold">Order Sent!</h3>
-          <p class="text-muted">${getVal('thank_you_message')}</p>
-        </div>`,
-      'status': () => `
-        <div class="p-3">
-          ${getVal('status_order_number') ? '<h4 class="fw-bold">Order #1234</h4>' : ''}
-          ${getVal('status_live_status') ? '<p>Status: <span class="badge bg-warning">Preparing</span></p>' : ''}
-        </div>`
+        'Confirmation': () => `
+            <div class="text-center p-5">
+                <div class="text-success mb-4" style="font-size: 4rem;"><i class="bi bi-check-circle-fill"></i></div>
+                <h3 class="fw-bold">Order Received!</h3>
+                <p class="text-muted mt-3">${form.querySelector('[name="thank_you_message"]').value || 'Thank you for your order!'}</p>
+                <div class="mt-5 p-3 rounded-3 bg-light text-start">
+                  <div class="small fw-bold text-muted text-uppercase mb-2">Next Steps</div>
+                  <div class="small"><i class="bi bi-1-circle me-2"></i> Chef is checking your order</div>
+                  <div class="small mt-2"><i class="bi bi-2-circle me-2"></i> We'll notify you when it's ready</div>
+                </div>
+            </div>
+        `,
+        'Status': () => `
+            <div class="p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <h4 class="fw-bold mb-0">Track Order</h4>
+                  <span class="badge bg-light text-dark border">#1234</span>
+                </div>
+                <div class="text-center py-4">
+                  <div class="spinner-grow text-primary mb-3" role="status"></div>
+                  <h5 class="fw-bold">Preparing your meal</h5>
+                  <p class="text-muted small">Estimated: 12-15 mins</p>
+                </div>
+                <div class="progress" style="height: 6px;">
+                  <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 45%; background-color: var(--primary-color);"></div>
+                </div>
+            </div>
+        `
     };
 
     const updatePreview = () => {
-      const activeCollapse = document.querySelector('.accordion-collapse.show');
-      if (!activeCollapse) {
-        previewScreen.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted p-4 text-center">Select a page to preview its design.</div>';
-        return;
-      }
-      const pageKey = activeCollapse.id.replace('collapse', '');
-      if (renderers[pageKey]) {
-        previewScreen.innerHTML = renderers[pageKey]();
-      }
+        const active = document.querySelector('.accordion-collapse.show');
+        const key = active.id.replace('collapse', '');
+        previewScreen.innerHTML = renderers[key]();
     };
 
-    document.querySelectorAll('.accordion-button').forEach(button => {
-      button.addEventListener('click', () => {
-        // This timeout allows the collapse animation to start before we update the content
-        setTimeout(updatePreview, 350);
-      });
-    });
-
+    document.querySelectorAll('.accordion-button').forEach(btn => btn.addEventListener('click', () => setTimeout(updatePreview, 350)));
     form.addEventListener('input', updatePreview);
-
-    // Initial render
     updatePreview();
-  });
+});
 </script>
 {% endblock %}

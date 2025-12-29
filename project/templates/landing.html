@@ -1,60 +1,89 @@
 {% extends "base.html" %}
 
-{% block title %}Oda - QR Ordering System{% endblock %}
+{% block title %}Oda - Modern QR Ordering{% endblock %}
+
+{% block styles %}
+<style>
+    body {
+        background: url("{{ url_for('static', filename='image/background.jpg') }}") no-repeat center center fixed !important;
+        background-size: cover !important;
+    }
+    .auth-wrapper, .landing-hero {
+        background: transparent !important;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <div class="row align-items-center">
-        <div class="col-md-8">
-            <h1 class="display-1 fw-bold">Oda</h1>
-            <p class="lead">QR ordering system</p>
-        </div>
-        <div class="col-md-4">
-            <div class="card p-4">
-                <ul class="nav nav-tabs nav-fill mb-4" id="authTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab" aria-controls="signup" aria-selected="true">Sign Up</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab" aria-controls="login" aria-selected="false">Login</button>
-                    </li>
-                </ul>
-                <div class="tab-content" id="authTabsContent">
-                    <div class="tab-pane fade show active" id="signup" role="tabpanel" aria-labelledby="signup-tab">
-                        <!-- <h2 class="h4 mb-3">Sign up Free</h2>
-                        <p class="text-muted small">Only takes 2 minutes. Credit card not required.</p> -->
-                        <form action="{{ url_for('auth.register') }}" method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Restaurant Name</label>
-                                <input type="text" name="restaurant_name" class="form-control" placeholder="e.g. Joe's Pizza" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Admin Email</label>
-                                <input type="email" name="email" class="form-control" placeholder="name@example.com" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Create Free Account</button>
-                        </form>
+<div class="container-fluid landing-hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7 mb-5 mb-lg-0">
+                <span class="badge rounded-pill bg-white text-primary mb-3 shadow-sm px-3 py-2">
+                    <i class="bi bi-stars me-1"></i> The future of dining
+                </span>
+                <h1 class="display-2 fw-bold mb-3">Oda <span class="text-primary">Admin</span></h1>
+                <p class="lead text-muted mb-4 fs-4">A lightweight, powerful engine to manage your restaurant's digital presence. Focus on your food, we'll handle the rest.</p>
+                <div class="d-flex gap-4">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <span class="fw-medium">Zero hardware cost</span>
                     </div>
-                    <div class="tab-pane fade" id="login" role="tabpanel" aria-labelledby="login-tab">
-                        <!-- <h2 class="h4 mb-3">Welcome Back</h2> -->
-                        <form action="{{ url_for('auth.login') }}" method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" name="email" class="form-control" required>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <span class="fw-medium">Instant menu updates</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-5 col-xl-4 offset-xl-1">
+                <div class="card auth-card shadow-lg p-3 border-0">
+                    <div class="card-body">
+                        <ul class="nav nav-tabs nav-fill mb-4" id="authTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Get Started</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="authTabsContent">
+                            <div class="tab-pane fade show active" id="signup" role="tabpanel">
+                                <form action="{{ url_for('auth.register') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Restaurant Name</label>
+                                        <input type="text" name="restaurant_name" class="form-control" placeholder="e.g. Sushi Zen" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Admin Email</label>
+                                        <input type="email" name="email" class="form-control" placeholder="name@restaurant.com" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Create Password</label>
+                                        <input type="password" name="password" class="form-control" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100 mt-2">Create Free Account</button>
+                                </form>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" required>
+                            
+                            <div class="tab-pane fade" id="login" role="tabpanel">
+                                <form action="{{ url_for('auth.login') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Email Address</label>
+                                        <input type="email" name="email" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-uppercase text-muted">Password</label>
+                                        <input type="password" name="password" class="form-control" required>
+                                    </div>
+                                    <div class="text-end mb-4">
+                                        <a href="{{ url_for('auth.forgot_password') }}" class="small text-primary text-decoration-none fw-semibold">Forgot Password?</a>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Welcome Back</button>
+                                </form>
                             </div>
-                            <div class="text-end mb-3">
-                                <a href="{{ url_for('auth.forgot_password') }}" class="small">Forgot Password?</a>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Log In</button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,123 +1,139 @@
 {% extends "base.html" %}
 
-{% block title %}Branding{% endblock %}
+{% block title %}Branding & Design{% endblock %}
 
 {% block styles %}
 <style>
-    /* Split Layout */
-    .design-container {
-        height: calc(100vh - 100px);
-        overflow: hidden;
-    }
-    .preview-pane {
-        background-color: #f0f2f5;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-right: 1px solid #dee2e6;
-    }
-    .config-pane {
-        background-color: #fff;
-        overflow-y: auto;
-    }
     .drop-zone {
-        border: 2px dashed #ccc;
-        border-radius: 0.5rem;
+        border: 2px dashed #e2e8f0;
+        border-radius: var(--radius-md);
+        min-height: 120px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        transition: all 0.2s ease;
+        background: #f8fafc;
     }
-    .drop-zone.drag-over {
-        background-color: #e9ecef;
-        border-color: #0d6efd;
+    
+    .drop-zone:hover, .drop-zone.drag-over {
+        border-color: var(--primary-color);
+        background-color: rgba(99, 102, 241, 0.05);
     }
-    .drop-zone-prompt {
-        color: #6c757d;
+
+    /* Mirroring the Actual Menu Styles */
+    .menu-preview-header {
+        position: relative;
+        text-align: center;
+        background: white;
+    }
+    .preview-banner {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        background: #e2e8f0;
+    }
+    .preview-logo-circle {
+        width: 80px;
+        height: 80px;
+        background: white;
+        border-radius: 50%;
+        margin: -40px auto 10px;
+        position: relative;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .preview-logo-circle img { width: 100%; height: 100%; object-fit: contain; }
+
+    .order-option-card {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 12px;
+        border: 1px solid #f1f5f9;
+        text-decoration: none;
+        color: inherit;
+        margin-bottom: 1rem;
+        transition: 0.2s;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="row g-0 design-container">
-        <!-- Left Column: Preview -->
-        <div class="col-md-7 preview-pane">
-            <div id="preview-screen" class="shadow-lg" style="width: 100%; max-width: 420px; height: 90%; overflow-y: auto; border-radius: 1rem; background: white;">
-                <!-- Live preview will be rendered here by JavaScript -->
-            </div>
+<div class="design-container row g-0">
+    <!-- Configuration Side -->
+    <div class="col-lg-5 config-pane">
+        <div class="mb-4">
+            <h2 class="fw-bold">Visual Identity</h2>
+            <p class="text-muted">Customize how your customers see your digital menu.</p>
         </div>
 
-        <!-- Right Column: Configuration -->
-        <div class="col-md-5 config-pane">
-            <div class="p-4">
-                <h4 class="fw-bold mb-4">Branding & Identity</h4>
-                <form method="POST" enctype="multipart/form-data">
-                    <!-- Basic Info -->
-                    <h5 class="fw-bold mb-3 text-muted">General Information</h5>
-                    <div class="row g-3 mb-4">
-                        <div class="col-12">
-                            <label class="form-label">Restaurant Name</label>
-                            <input type="text" name="name" class="form-control" value="{{ restaurant.name }}" required>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Tagline / Slogan</label>
-                            <input type="text" name="tagline" class="form-control" value="{{ restaurant.tagline or '' }}" placeholder="e.g. Best Pizza in Town">
-                        </div>
+        <form id="branding-form" action="{{ url_for('admin.design_branding') }}" method="POST" enctype="multipart/form-data">
+            <!-- Brand Colors -->
+            <div class="card border-0 bg-light mb-4">
+                <div class="card-body">
+                    <label class="form-label small fw-bold text-uppercase text-muted">Primary Brand Color</label>
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="color" name="primary_color" id="primary_color" class="form-control form-control-color border-0 bg-transparent" value="{{ config.primary_color or '#6366f1' }}">
+                        <span class="text-muted font-monospace small" id="color-hex">#6366f1</span>
                     </div>
-
-                    <hr class="my-4">
-
-                    <!-- Visual Identity -->
-                    <h5 class="fw-bold mb-3 text-muted">Visual Identity</h5>
-                    
-                    <div class="row g-4 mb-4">
-                        <!-- Logo Upload -->
-                        <div class="col-12">
-                            <label class="form-label">Logo</label>
-                            <div class="drop-zone p-3" id="logo-drop-zone" style="height: 200px;">
-                                <div id="logo-preview-container" class="{{ 'd-none' if not restaurant.logo_data }}">
-                                    {% if restaurant.logo_data %}
-                                    <img id="logo-preview" src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}" class="rounded-circle shadow-sm" style="width: 150px; height: 150px; object-fit: cover;">
-                                    {% endif %}
-                                </div>
-                                <div class="drop-zone-prompt {{ 'd-none' if restaurant.logo_data else '' }}" id="logo-prompt">
-                                    <i class="bi bi-cloud-upload fs-1"></i>
-                                    <span class="mt-2 small">Drop logo here or click to upload</span>
-                                </div>
-                                <input type="file" name="logo" id="logo-input" class="d-none" accept="image/*">
-                            </div>
-                            <div class="form-text text-center small mt-2">Recommended: Square (1:1), PNG or JPG</div>
-                        </div>
-
-                        <!-- Banner Upload -->
-                        <div class="col-12">
-                            <label class="form-label">Banner Image</label>
-                            <div class="drop-zone p-3" id="banner-drop-zone" style="height: 200px;">
-                                <div id="banner-preview-container" class="{{ 'd-none' if not restaurant.banner_data }}">
-                                    {% if restaurant.banner_data %}
-                                    <img id="banner-preview" src="{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}" class="rounded shadow-sm" style="width: 100%; height: 180px; object-fit: cover;">
-                                    {% endif %}
-                                </div>
-                                <div class="drop-zone-prompt {{ 'd-none' if restaurant.banner_data else '' }}" id="banner-prompt">
-                                    <i class="bi bi-cloud-upload fs-1"></i>
-                                    <span class="mt-2 small">Drop banner here or click to upload</span>
-                                </div>
-                                <input type="file" name="banner" id="banner-input" class="d-none" accept="image/*">
-                            </div>
-                            <div class="form-text text-center small mt-2">Recommended: Landscape (16:9), High Res</div>
-                        </div>
-                    </div>
-
-                    <div class="d-grid mt-5">
-                        <button type="submit" class="btn btn-primary btn-lg rounded-pill">
-                            <i class="bi bi-check-lg me-2"></i>Save Changes
-                        </button>
-                    </div>
-                </form>
+                </div>
             </div>
+
+            <!-- Logo Upload -->
+            <div class="mb-4">
+                <label class="form-label small fw-bold text-uppercase text-muted">Restaurant Logo</label>
+                <div class="drop-zone" id="logo-drop-zone">
+                    <input type="file" name="logo" id="logo-input" class="d-none" accept="image/*">
+                    <div id="logo-prompt" class="text-center">
+                        <i class="bi bi-image text-primary fs-2"></i>
+                        <p class="mb-0 small fw-medium mt-2">Click or drag logo here</p>
+                        <p class="text-muted smallest" style="font-size: 0.7rem;">Recommended: Square PNG/SVG</p>
+                    </div>
+                    <div id="logo-preview-container" class="d-none">
+                        <img id="logo-preview" class="img-fluid rounded" style="max-height: 80px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Banner Upload -->
+            <div class="mb-4">
+                <label class="form-label small fw-bold text-uppercase text-muted">Hero Banner</label>
+                <div class="drop-zone" id="banner-drop-zone">
+                    <input type="file" name="banner" id="banner-input" class="d-none" accept="image/*">
+                    <div id="banner-prompt" class="text-center">
+                        <i class="bi bi-card-image text-primary fs-2"></i>
+                        <p class="mb-0 small fw-medium mt-2">Upload header image</p>
+                        <p class="text-muted smallest" style="font-size: 0.7rem;">Recommended: 1200x400px</p>
+                    </div>
+                    <div id="banner-preview-container" class="d-none w-100 p-2">
+                        <img id="banner-preview" class="img-fluid rounded w-100">
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-4 opacity-5">
+
+            <button type="submit" class="btn btn-primary w-100 py-3">
+                Publish Changes
+            </button>
+        </form>
+    </div>
+
+    <!-- Live Preview Side -->
+    <div class="col-lg-7 preview-pane d-none d-lg-flex">
+        <div class="text-center mb-4 position-absolute top-0 mt-4">
+            <span class="badge rounded-pill bg-white text-dark shadow-sm px-3 py-2 border">
+                <i class="bi bi-eye-fill me-2 text-primary"></i> Live Customer Preview
+            </span>
+        </div>
+        
+        <div class="mobile-mockup" id="live-preview-content">
+            <!-- Content Injected via JS -->
         </div>
     </div>
 </div>
@@ -125,111 +141,85 @@
 
 {% block scripts %}
 <script>
-function setupDropZone(zoneId, inputId, previewContainerId, previewImgId, promptId, onUpdateCallback) {
-    const dropZone = document.getElementById(zoneId);
-    const fileInput = document.getElementById(inputId);
-    const previewContainer = document.getElementById(previewContainerId);
-    const prompt = document.getElementById(promptId);
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('branding-form');
+    const colorInput = document.getElementById('primary_color');
+    const colorHex = document.getElementById('color-hex');
+    const previewContainer = document.getElementById('live-preview-content');
 
-    if (!dropZone) return;
+    function setupDropZone(zoneId, inputId, containerId, previewId, promptId, callback) {
+        const zone = document.getElementById(zoneId);
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+        const container = document.getElementById(containerId);
+        const prompt = document.getElementById(promptId);
 
-    dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length) {
-            updateThumbnail(fileInput.files[0]);
-        }
-    });
-
-    dropZone.addEventListener('dragover', e => {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
-
-    ['dragleave', 'dragend'].forEach(type => {
-        dropZone.addEventListener(type, () => {
-            dropZone.classList.remove('drag-over');
+        zone.addEventListener('click', () => input.click());
+        zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) {
+                input.files = e.dataTransfer.files;
+                handleFiles(e.dataTransfer.files);
+            }
         });
-    });
 
-    dropZone.addEventListener('drop', e => {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        if (e.dataTransfer.files.length) {
-            fileInput.files = e.dataTransfer.files;
-            updateThumbnail(e.dataTransfer.files[0]);
-        }
-    });
+        input.addEventListener('change', () => handleFiles(input.files));
 
-    function updateThumbnail(file) {
-        let previewImage = document.getElementById(previewImgId);
-        if (previewContainer.querySelector('img')) {
-            previewImage.src = URL.createObjectURL(file);
-        } else {
-            const newPreviewImage = document.createElement('img');
-            newPreviewImage.src = URL.createObjectURL(file);
-            newPreviewImage.id = previewImgId;
-            newPreviewImage.className = (zoneId === 'logo-drop-zone') ? 'rounded-circle shadow-sm' : 'rounded shadow-sm';
-            newPreviewImage.style.cssText = (zoneId === 'logo-drop-zone') ? 'width: 150px; height: 150px; object-fit: cover;' : 'width: 100%; height: 180px; object-fit: cover;';
-            previewContainer.appendChild(newPreviewImage);
+        function handleFiles(files) {
+            if (files && files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.src = e.target.result;
+                    container.classList.remove('d-none');
+                    prompt.classList.add('d-none');
+                    callback();
+                };
+                reader.readAsDataURL(files[0]);
+            }
         }
-        previewContainer.classList.remove('d-none');
-        prompt.classList.add('d-none');
-        if (onUpdateCallback) onUpdateCallback();
     }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.querySelector('form');
-    const previewScreen = document.getElementById('preview-screen');
-    const restaurantNameInput = document.querySelector('input[name="name"]');
-    const taglineInput = document.querySelector('input[name="tagline"]');
-
-    const initialLogoUrl = "{% if restaurant.logo_data %}{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='logo') }}{% endif %}";
-    const initialBannerUrl = "{% if restaurant.banner_data %}{{ url_for('admin.serve_restaurant_image', restaurant_id=restaurant.id, image_type='banner') }}{% endif %}";
 
     function renderPreview() {
-        const name = restaurantNameInput.value;
-        const tagline = taglineInput.value;
+        const primaryColor = colorInput.value;
+        colorHex.textContent = primaryColor.toUpperCase();
+        
+        const logoSrc = document.getElementById('logo-preview').src || 'https://via.placeholder.com/80?text=Logo';
+        const bannerSrc = document.getElementById('banner-preview').src || 'https://via.placeholder.com/400x150?text=Header+Image';
 
-        const logoPreview = document.getElementById('logo-preview');
-        const bannerPreview = document.getElementById('banner-preview');
-        const logoUrl = logoPreview ? logoPreview.src : initialLogoUrl;
-        const bannerUrl = bannerPreview ? bannerPreview.src : initialBannerUrl;
-
-        const bannerStyle = bannerUrl ? `style="background-image: url('${bannerUrl}');"` : '';
-        const logoImg = logoUrl ? `<img src="${logoUrl}" class="restaurant-logo rounded-circle shadow" alt="Logo">` : `<div class="restaurant-logo rounded-circle shadow bg-white d-flex align-items-center justify-content-center mx-auto"><i class="bi bi-shop fs-2 text-primary"></i></div>`;
-
-        previewScreen.innerHTML = `
-            <style>
-                .landing-card { border-radius: 28px; border: none; overflow: hidden; background: white; }
-                .restaurant-logo { width: 100px; height: 100px; object-fit: cover; border: 4px solid white; margin-top: -50px; }
-                .banner-container { height: 180px; background-color: #dfe6e9; background-size: cover; background-position: center; }
-                .order-option-card { border: 2px solid #f1f2f6; border-radius: 18px; padding: 20px; text-decoration: none; color: #2d3436; display: flex; align-items-center; gap: 15px; }
-                .order-option-card i { font-size: 1.8rem; color: #e67e22; }
-                .option-title { font-weight: 700; margin-bottom: 2px; display: block; }
-                .option-desc { font-size: 0.85rem; color: #636e72; display: block; }
-            </style>
-            <div class="card landing-card text-center">
-                <div class="banner-container" ${bannerStyle}></div>
-                <div class="card-body px-4 pb-5">
-                    ${logoImg}
-                    <h2 class="fw-bold mt-3 mb-1">${name}</h2>
-                    <p class="text-muted small mb-3">${tagline || 'Welcome! Choose an option to start.'}</p>
-                    <div class="mt-4 pt-2">
-                        <p class="fw-bold mb-3">How would you like to order?</p>
-                        <div class="d-grid gap-3">
-                            <a href="#" class="order-option-card shadow-sm text-start" onclick="event.preventDefault()">
-                                <i class="bi bi-shop-window"></i>
-                                <div><span class="option-title">Dine-In</span><span class="option-desc">Enjoy your meal here.</span></div>
-                                <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
-                            </a>
-                            <a href="#" class="order-option-card shadow-sm text-start" onclick="event.preventDefault()">
-                                <i class="bi bi-bag-heart"></i>
-                                <div><span class="option-title">Take-Away</span><span class="option-desc">Pick up and go.</span></div>
-                                <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
-                            </a>
+        previewContainer.innerHTML = `
+            <div class="menu-preview-header">
+                <img src="${bannerSrc}" class="preview-banner">
+                <div class="preview-logo-circle">
+                    <img src="${logoSrc}">
+                </div>
+                <div class="px-4 pb-4">
+                    <h4 class="fw-bold mb-1">Your Restaurant</h4>
+                    <p class="text-muted small">Open • Closes 10:00 PM</p>
+                    
+                    <div class="mt-4 text-start">
+                        <p class="fw-bold mb-3">Order Type</p>
+                        <div class="order-option-card shadow-sm" style="border-left: 4px solid ${primaryColor}">
+                            <i class="bi bi-shop-window me-3 fs-4" style="color: ${primaryColor}"></i>
+                            <div>
+                                <div class="fw-bold">Dine-In</div>
+                                <div class="smallest text-muted" style="font-size: 0.7rem;">Eat at our tables</div>
+                            </div>
+                        </div>
+                        <div class="order-option-card shadow-sm">
+                            <i class="bi bi-bag-heart me-3 fs-4 text-muted"></i>
+                            <div>
+                                <div class="fw-bold">Take-Away</div>
+                                <div class="smallest text-muted" style="font-size: 0.7rem;">Pick up your order</div>
+                            </div>
                         </div>
                     </div>
+
+                    <button class="btn w-100 mt-3 py-3" style="background-color: ${primaryColor}; color: white; border-radius: 50px;">
+                        View Full Menu
+                    </button>
                 </div>
             </div>
         `;
@@ -238,8 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDropZone('logo-drop-zone', 'logo-input', 'logo-preview-container', 'logo-preview', 'logo-prompt', renderPreview);
     setupDropZone('banner-drop-zone', 'banner-input', 'banner-preview-container', 'banner-preview', 'banner-prompt', renderPreview);
 
-    form.addEventListener('input', renderPreview);
-    renderPreview(); // Initial render
+    colorInput.addEventListener('input', renderPreview);
+    renderPreview(); 
 });
 </script>
 {% endblock %}

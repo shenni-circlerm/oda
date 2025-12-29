@@ -2,241 +2,250 @@
 
 {% block title %}Manage Menus{% endblock %}
 
+{% block styles %}
+<style>
+    .menu-container {
+        height: calc(100vh - 80px);
+        display: flex;
+        background: var(--bg-light);
+    }
+
+    /* Sidebar Styling */
+    .menu-sidebar {
+        width: 320px;
+        background: var(--surface);
+        border-right: 1px solid rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .menu-nav-item {
+        border: none;
+        border-radius: var(--radius-md);
+        margin: 4px 12px;
+        padding: 12px 16px;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .menu-nav-item.active {
+        background-color: var(--primary-light) !important;
+        color: var(--primary-color) !important;
+    }
+
+    .menu-nav-item.active::before {
+        content: '';
+        position: absolute;
+        left: -12px;
+        top: 20%;
+        height: 60%;
+        width: 4px;
+        background: var(--primary-color);
+        border-radius: 0 4px 4px 0;
+    }
+
+    /* Schedule Ribbon */
+    .day-pill {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 10px;
+        font-weight: 700;
+        background: var(--bg-light);
+        color: var(--text-muted);
+        margin-right: 2px;
+    }
+    .day-pill.active {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    /* Main Content */
+    .menu-detail {
+        flex: 1;
+        padding: 2.5rem;
+        overflow-y: auto;
+    }
+
+    .detail-card {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        max-width: 900px;
+        margin-bottom: 2rem;
+    }
+
+    .category-row {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(0,0,0,0.03);
+        transition: background 0.2s;
+    }
+    .category-row:hover {
+        background: var(--bg-light);
+    }
+
+    .form-section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 1.25rem;
+        display: block;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="row h-100">
-        <!-- Left Column: Menu List -->
-        <div class="col-md-4 col-lg-3 border-end bg-white p-0" style="min-height: calc(100vh - 100px);">
-            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
-                <h5 class="fw-bold mb-0">Menus</h5>
-                <button class="btn btn-sm btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addMenuModal">
-                    <i class="bi bi-plus-lg"></i> New
+<div class="menu-container">
+    <!-- Sidebar: Menu List -->
+    <div class="menu-sidebar">
+        <div class="p-4 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Menus</h5>
+            <button class="btn btn-sm btn-primary rounded-circle" data-bs-toggle="modal" data-bs-target="#addMenuModal" style="width: 32px; height: 32px; padding: 0;">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </div>
+        
+        <div class="overflow-auto flex-grow-1">
+            {% for menu in menus %}
+            <a href="{{ url_for('admin.menu_menus', menu_id=menu.id) }}" 
+               class="list-group-item list-group-item-action menu-nav-item {% if selected_menu and selected_menu.id == menu.id %}active{% endif %}">
+                <div class="fw-bold">{{ menu.name }}</div>
+                <div class="d-flex mt-2">
+                    {% set days = ['M','T','W','T','F','S','S'] %}
+                    {% for day in days %}
+                        <span class="day-pill {% if loop.index <= 5 %}active{% endif %}">{{ day }}</span>
+                    {% endfor %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Main Detail Pane -->
+    <div class="menu-detail">
+        {% if selected_menu %}
+        <div class="detail-card p-5">
+            <div class="d-flex justify-content-between align-items-start mb-5">
+                <div>
+                    <h2 class="fw-bold mb-1">{{ selected_menu.name }}</h2>
+                    <p class="text-muted">Configure when this menu is available and which categories it contains.</p>
+                </div>
+                <button class="btn btn-outline-danger btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteMenuModal">
+                    <i class="bi bi-trash me-2"></i>Delete Menu
                 </button>
             </div>
-            <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
-                {% for menu in menus %}
-                <a href="{{ url_for('admin.menu_menus', menu_id=menu.id) }}" 
-                   class="list-group-item list-group-item-action py-3 border-0 {% if selected_menu and selected_menu.id == menu.id %}bg-secondary bg-opacity-10{% endif %}">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <span class="fw-bold">{{ menu.name }}</span>
-                        <span class="badge rounded-pill {{ 'bg-success' if menu.is_active else 'bg-secondary' }}">
-                            {{ 'Active' if menu.is_active else 'Inactive' }}
-                        </span>
-                    </div>
-                    <small class="text-muted">{{ menu.categories|length }} Categories</small>
-                </a>
-                {% else %}
-                <div class="text-center py-5 text-muted">
-                    <p class="mb-0">No menus found.</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
 
-        <!-- Right Column: Configuration & Rules -->
-        <div class="col-md-8 col-lg-9 p-4 bg-light">
-            {% if selected_menu %}
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-                    <h4 class="fw-bold mb-0">Edit Menu</h4>
-                    <div class="dropdown">
-                        <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-three-dots-vertical fs-5"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
-                            <li>
-                                <button class="dropdown-item" onclick="document.getElementById('activeCheck').click(); document.querySelector('form').submit();">
-                                    <i class="bi bi-toggle-{{ 'on text-success' if selected_menu.is_active else 'off text-muted' }} me-2"></i>
-                                    {{ 'Deactivate' if selected_menu.is_active else 'Activate' }}
-                                </button>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#deleteMenuModal"><i class="bi bi-trash me-2"></i>Delete</button></li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="card-body p-4 overflow-auto">
-                    <form action="{{ url_for('admin.menu_menus') }}" method="POST">
-                        <input type="hidden" name="menu_id" value="{{ selected_menu.id }}">
+            <form action="{{ url_for('admin.menu_menus', menu_id=selected_menu.id) }}" method="POST">
+                <div class="row g-5">
+                    <!-- Basic Config -->
+                    <div class="col-lg-6">
+                        <span class="form-section-label">General Settings</span>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold small">Menu Name</label>
+                            <input type="text" name="name" class="form-control bg-light border-0 py-2" value="{{ selected_menu.name }}" required>
+                        </div>
                         
-                        <!-- Basic Info -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-8">
-                                <label class="form-label">Menu Name</label>
-                                <input type="text" name="name" value="{{ selected_menu.name }}" class="form-control" required>
-                            </div>
-                            <!-- <div class="col-md-4">
-                                <label class="form-label d-block">&nbsp;</label>
-                                <div class="form-check form-switch mt-2">
-                                    <input type="checkbox" name="is_active" class="form-check-input" id="activeCheck" {% if selected_menu.is_active %}checked{% endif %}>
-                                    <label class="form-check-label" for="activeCheck">Menu Active</label>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold small">Availability</label>
+                            <div class="p-3 bg-light rounded-4">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="is_active" {% if selected_menu.is_active %}checked{% endif %}>
+                                    <label class="form-check-label small fw-bold">Active for customers</label>
                                 </div>
-                            </div> -->
-                            <div class="col-12">
-                                <label class="form-label">Description</label>
-                                <textarea name="description" class="form-control" rows="2">{{ selected_menu.description }}</textarea>
                             </div>
                         </div>
+                    </div>
 
-                        <hr class="text-muted opacity-25 my-4">
-
-                        <!-- Configuration & Rules -->
-                        <h5 class="fw-bold mb-3">Availability Rules</h5>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label text-muted small text-uppercase fw-bold">Time Restriction</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">From</span>
-                                    <input type="time" name="start_time" class="form-control" value="{{ selected_menu.start_time.strftime('%H:%M') if selected_menu.start_time else '' }}">
-                                    <span class="input-group-text">To</span>
-                                    <input type="time" name="end_time" class="form-control" value="{{ selected_menu.end_time.strftime('%H:%M') if selected_menu.end_time else '' }}">
-                                </div>
-                                <div class="form-text">e.g. Breakfast 09:00 - 11:00</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label text-muted small text-uppercase fw-bold">Seasonal / Date Range</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">Start</span>
-                                    <input type="date" name="start_date" class="form-control" value="{{ selected_menu.start_date }}">
-                                    <span class="input-group-text">End</span>
-                                    <input type="date" name="end_date" class="form-control" value="{{ selected_menu.end_date }}">
-                                </div>
-                                <div class="form-text">e.g. Xmas Menu (Dec 1 - Dec 31)</div>
-                            </div>
+                    <!-- Schedule Preview -->
+                    <div class="col-lg-6">
+                        <span class="form-section-label">Default Schedule</span>
+                        <div class="bg-light rounded-4 p-4 text-center">
+                            <i class="bi bi-clock-history text-primary opacity-50 fs-2 mb-2 d-block"></i>
+                            <div class="small fw-bold">Always Available</div>
+                            <div class="smallest text-muted">This menu ignores time-of-day restrictions.</div>
+                            <button type="button" class="btn btn-link btn-sm smallest text-decoration-none mt-2">Change to Timed...</button>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="d-flex justify-content-end mb-4">
-                            <button type="submit" class="btn btn-primary rounded-pill px-4">Save Configuration</button>
-                        </div>
-                    </form>
-
-                    <hr class="text-muted opacity-25 my-4">
-
-                    <!-- Menu Content -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold mb-0">Menu Content</h5>
-                        <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                <div class="mt-5 pt-4 border-top">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <span class="form-section-label mb-0">Included Categories</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addCategoryToMenuModal">
                             <i class="bi bi-plus-lg me-1"></i> Add Category
                         </button>
                     </div>
-                    
-                    {% if selected_menu.categories %}
-                    <div class="accordion" id="menuCategories">
+
+                    <div class="border rounded-4 overflow-hidden">
                         {% for category in selected_menu.categories %}
-                        <div class="accordion-item border-0 shadow-sm mb-2">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#cat{{ category.id }}">
-                                    {{ category.name }}
-                                    <span class="badge bg-light text-dark ms-2">{{ category.items|length }} items</span>
-                                </button>
-                            </h2>
-                            <div id="cat{{ category.id }}" class="accordion-collapse collapse show" data-bs-parent="#menuCategories">
-                                <div class="accordion-body p-0">
-                                    <ul class="list-group list-group-flush">
-                                        {% for item in category.items %}
-                                        <li class="list-group-item ps-4 border-0 d-flex justify-content-between align-items-center">
-                                            <span>{{ item.name }}</span>
-                                            <span class="text-muted small">${{ "%.2f"|format(item.price) }}</span>
-                                        </li>
-                                        {% endfor %}
-                                        <li class="list-group-item ps-4 border-0 bg-light">
-                                            <a href="{{ url_for('admin.menu_manage_menu') }}" class="text-decoration-none small text-primary">
-                                                <i class="bi bi-pencil me-1"></i> Manage Items in Menu Items View
-                                            </a>
-                                        </li>
-                                    </ul>
+                        <div class="category-row d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="p-2 bg-light rounded-3 me-3">
+                                    <i class="bi bi-grid-1x2-fill text-primary opacity-50"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold small">{{ category.name }}</div>
+                                    <div class="smallest text-muted">{{ category.items|length }} Items</div>
                                 </div>
                             </div>
+                            <form action="{{ url_for('admin.menu_remove_category_from_menu', menu_id=selected_menu.id, category_id=category.id) }}" method="POST">
+                                <button type="submit" class="btn btn-link text-danger p-0" title="Remove from menu">
+                                    <i class="bi bi-x-circle fs-5"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="p-5 text-center text-muted opacity-50">
+                            <div class="smallest fw-bold">No categories added yet.</div>
                         </div>
                         {% endfor %}
                     </div>
-                    {% else %}
-                    <div class="text-center py-4 border rounded-3 bg-white text-muted">
-                        <p class="mb-0">No categories assigned to this menu yet.</p>
-                    </div>
-                    {% endif %}
                 </div>
-            </div>
-            {% else %}
-            <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
-                <i class="bi bi-journal-album fs-1 mb-3 opacity-25"></i>
-                <p>Select a menu to configure rules and content.</p>
-            </div>
-            {% endif %}
+
+                <div class="mt-5 pt-4 d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm">
+                        Save Menu Changes
+                    </button>
+                </div>
+            </form>
         </div>
+        {% else %}
+        <div class="empty-state-canvas">
+            <div>
+                <div class="mb-4 d-inline-block p-4 bg-white rounded-circle shadow-sm">
+                    <i class="bi bi-journal-text text-primary opacity-25" style="font-size: 3.5rem;"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Menu Configurations</h4>
+                <p class="mx-auto" style="max-width: 320px;">Create separate menus for Breakfast, Lunch, or Special Events to display at different times.</p>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <!-- Add Menu Modal -->
 <div class="modal fade" id="addMenuModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold">New Menu</h5>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="fw-bold">New Menu</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('admin.menu_menus') }}" method="POST">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Menu Name</label>
-                        <input type="text" name="name" class="form-control" placeholder="e.g. Breakfast" required>
-                    </div>
+                    <label class="form-label smallest fw-bold text-muted text-uppercase">Menu Name</label>
+                    <input type="text" name="name" class="form-control bg-light border-0 py-2" placeholder="e.g. Dinner Menu" required>
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="submit" class="btn btn-primary w-100 rounded-pill">Create</button>
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">Create Menu</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-
-<!-- Add Category Modal (Quick) -->
-<div class="modal fade" id="addCategoryModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold">Add Category</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{{ url_for('admin.menu_categories') }}" method="POST">
-                {% if selected_menu %}
-                <input type="hidden" name="menu_id" value="{{ selected_menu.id }}">
-                {% endif %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Category Name</label>
-                        <input type="text" name="name" class="form-control" placeholder="e.g. Starters" required>
-                    </div>
-                    <p class="small text-muted">This category will be assigned to <strong>{{ selected_menu.name }}</strong>.</p>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="submit" class="btn btn-primary w-100 rounded-pill">Add Category</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Menu Modal -->
-{% if selected_menu %}
-<div class="modal fade" id="deleteMenuModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold">Delete Menu</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted">Are you sure you want to delete <strong>{{ selected_menu.name }}</strong>? This action cannot be undone.</p>
-                <div class="d-flex justify-content-end gap-2 mt-4">
-                    <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
-                    <form action="{{ url_for('admin.menu_delete_menu', menu_id=selected_menu.id) }}" method="POST">
-                        <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}

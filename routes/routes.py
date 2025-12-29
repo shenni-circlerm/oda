@@ -61,7 +61,7 @@ def kitchen_orders():
         else:
             uncategorized_items.append(item)
 
-    return render_template('kitchen_orders.html', stations=stations, station_items=station_items, uncategorized_items=uncategorized_items)
+    return render_template('kitchen_orders.html', stations=stations, station_items=station_items, uncategorized_items=uncategorized_items, active_items=active_items)
 
 @admin_bp.route('/office/users')
 @login_required
@@ -552,6 +552,19 @@ def menu_delete_menu(menu_id):
     db.session.commit()
     flash('Menu deleted.')
     return redirect(url_for('admin.menu_menus'))
+
+@admin_bp.route('/menu/menus/remove_category/<int:menu_id>/<int:category_id>', methods=['POST'])
+@login_required
+def menu_remove_category_from_menu(menu_id, category_id):
+    menu = Menu.query.filter_by(id=menu_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    category = Category.query.filter_by(id=category_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    
+    if category in menu.categories:
+        menu.categories.remove(category)
+        db.session.commit()
+        flash(f'Category "{category.name}" removed from menu "{menu.name}".')
+        
+    return redirect(url_for('admin.menu_menus', menu_id=menu_id))
 
 @admin_bp.route('/menu/categories', methods=['GET', 'POST'])
 @login_required
