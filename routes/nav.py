@@ -23,8 +23,8 @@ MENU_STRUCTURE = {
         'label': 'Menu',
         'description': 'Decide what’s on the menu — and what’s not.',
         'items': [
-            {'label': 'Menus', 'endpoint': 'admin.menu_menus', 'icon': 'bi-journal-album'},
             {'label': 'Menu Items', 'endpoint': 'admin.menu_manage_menu', 'icon': 'bi-journal-text'},
+            {'label': 'Menus', 'endpoint': 'admin.menu_menus', 'icon': 'bi-journal-album'},            
             {'label': 'Categories', 'endpoint': 'admin.menu_categories', 'icon': 'bi-tags'},
         ]
     },

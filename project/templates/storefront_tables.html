@@ -98,7 +98,8 @@
                             <img id="modalQrImage" src="" class="img-fluid" style="width: 150px;">
                         </div>
                         <div class="d-grid gap-2">
-                            <a id="modalQrDownload" href="#" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill">Download PNG</a>
+                            <a id="modalQrTestLink" href="#" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill">Test Link</a>
+                            <a id="modalQrDownload" href="#" target="_blank" class="btn btn-primary btn-sm rounded-pill">Download PNG</a>
                         </div>
                     </div>
                     
@@ -198,6 +199,7 @@ function openConfigModal(id, number, status, capacity, floor, reservation, notes
     
     document.getElementById('modalQrImage').src = qrApiUrl;
     document.getElementById('modalQrDownload').href = qrApiUrl.replace('200x200', '500x500');
+    document.getElementById('modalQrTestLink').href = qrDataUrl;
 
     // Delete Action
     const deleteUrl = "{{ url_for('admin.storefront_delete_table', table_id=0) }}".replace('0', id);
