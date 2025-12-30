@@ -161,6 +161,14 @@
                 </div>
             </div>
             {% endif %}
+        {% else %}
+        <div class="text-center py-5 my-5">
+            <div class="mb-4">
+                <i class="bi bi-clock-history text-muted" style="font-size: 4rem; opacity: 0.5;"></i>
+            </div>
+            <h4 class="fw-bold">We're Currently Closed</h4>
+            <p class="text-muted">There are no active menus available at this time. Please check back later!</p>
+        </div>
         {% endfor %}
     </div>
 </div>
@@ -172,6 +180,9 @@
 </a>
 {% endblock %}
 {% block body_end %}
+<script>
+    const menuData = {{ menu_data_json|tojson|safe }};
+</script>
 <!-- Item Detail Modal -->
 <div class="modal fade" id="itemDetailModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -182,6 +193,8 @@
             </div>
             <div class="modal-body">
                 <p class="small text-muted" id="modalItemDescription"></p>
+                <!-- Modifiers will be injected here -->
+                <div id="modalModifiersContainer"></div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Special Requests</label>
                     <textarea id="modalItemNotes" class="form-control" rows="2" placeholder="e.g. No onions, extra spicy"></textarea>
@@ -189,11 +202,11 @@
             </div>
             <div class="modal-footer border-0 d-flex justify-content-between align-items-center">
                 <div class="qty-control shadow-sm">
-                    <button class="qty-btn" onclick="updateModalQuantity(-1)"><i class="bi bi-dash"></i></button>
+                    <button class="qty-btn" onclick="updateModalQuantity(-1); updateModalPrice()"><i class="bi bi-dash"></i></button>
                     <span class="fw-bold small" id="modalItemQuantity">1</span>
-                    <button class="qty-btn" onclick="updateModalQuantity(1)"><i class="bi bi-plus"></i></button>
+                    <button class="qty-btn" onclick="updateModalQuantity(1); updateModalPrice()"><i class="bi bi-plus"></i></button>
                 </div>
-                <button type="button" id="modalAddToCartBtn" class="btn btn-primary rounded-pill px-4 fw-bold">Add to Order</button>
+                <button type="button" id="modalAddToCartBtn" class="btn btn-primary rounded-pill px-4 fw-bold">Add to Order - $0.00</button>
             </div>
         </div>
     </div>
@@ -202,6 +215,7 @@
 {% block scripts %}
 <script>
     let currentModalItem = {};
+    let currentItemPrice = 0;
     const itemDetailModal = new bootstrap.Modal(document.getElementById('itemDetailModal'));
 
     function getCart() {
@@ -224,17 +238,90 @@
     }
 
     function openItemModal(id, name, price, description) {
-        currentModalItem = { id, name, price };
+        const itemData = menuData[id];
+        currentModalItem = { id, name, price: itemData.price };
+        currentItemPrice = itemData.price;
+
         document.getElementById('modalItemName').textContent = name;
         document.getElementById('modalItemDescription').textContent = description;
         document.getElementById('modalItemNotes').value = '';
         document.getElementById('modalItemQuantity').textContent = 1;
         
+        // Render Modifiers
+        const modifiersContainer = document.getElementById('modalModifiersContainer');
+        modifiersContainer.innerHTML = '';
+        if (itemData.modifiers && itemData.modifiers.length > 0) {
+            itemData.modifiers.forEach(group => {
+                let optionsHtml = '';
+                group.options.forEach(opt => {
+                    const inputType = group.selection_type === 'multiple' ? 'checkbox' : 'radio';
+                    optionsHtml += `
+                        <div class="form-check">
+                            <input class="form-check-input" type="${inputType}" name="group-${group.id}" id="opt-${opt.id}" value="${opt.id}" data-price="${opt.price_override}" data-name="${opt.name.replace(/'/g, "\\'")}" onchange="updateModalPrice()">
+                            <label class="form-check-label d-flex justify-content-between w-100" for="opt-${opt.id}">
+                                <span>${opt.name}</span>
+                                ${opt.price_override > 0 ? `<span>+$${opt.price_override.toFixed(2)}</span>` : ''}
+                            </label>
+                        </div>
+                    `;
+                });
+
+                modifiersContainer.innerHTML += `
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">${group.name} ${group.is_required ? '<span class="text-danger">*</span>' : ''}</label>
+                        ${optionsHtml}
+                        <div class="text-danger small mt-1 d-none" data-validation-for="group-${group.id}">* Please choose one</div>
+                    </div>
+                `;
+            });
+        }
+
         const addToCartBtn = document.getElementById('modalAddToCartBtn');
+        updateModalPrice(); // Initial price update
+
         addToCartBtn.onclick = function() {
+            // --- VALIDATION ---
+            // Clear previous validation messages
+            document.querySelectorAll('[data-validation-for]').forEach(el => el.classList.add('d-none'));
+
+            const itemData = menuData[currentModalItem.id];
+            let validationPassed = true;
+            if (itemData.modifiers && itemData.modifiers.length > 0) {
+                itemData.modifiers.forEach(group => {
+                    if (group.is_required) {
+                        const selectedOption = document.querySelector(`#modalModifiersContainer input[name="group-${group.id}"]:checked`);
+                        if (!selectedOption) {
+                            validationPassed = false;
+                            // Show inline validation message
+                            const validationMsg = document.querySelector(`[data-validation-for="group-${group.id}"]`);
+                            if (validationMsg) {
+                                validationMsg.classList.remove('d-none');
+                            }
+                        }
+                    }
+                });
+            }
+            if (!validationPassed) {
+                return; // Stop execution
+            }
+
             const quantity = parseInt(document.getElementById('modalItemQuantity').textContent);
             const notes = document.getElementById('modalItemNotes').value.trim();
-            addToCart(currentModalItem.id, currentModalItem.name, currentModalItem.price, quantity, notes);
+            
+            const selectedModifiers = [];
+            document.querySelectorAll('#modalModifiersContainer input:checked').forEach(input => {
+                selectedModifiers.push({
+                    id: parseInt(input.value),
+                    name: input.dataset.name,
+                    price: parseFloat(input.dataset.price)
+                });
+            });
+
+            // Calculate final price per item
+            let finalPrice = currentModalItem.price;
+            selectedModifiers.forEach(m => finalPrice += m.price);
+
+            addToCart(currentModalItem.id, currentModalItem.name, finalPrice, quantity, notes, selectedModifiers);
             itemDetailModal.hide();
         };
         
@@ -248,12 +335,25 @@
         qtyEl.textContent = currentQty;
     }
 
-    function addToCart(id, name, price, quantity, notes) {
+    function updateModalPrice() {
+        let price = currentItemPrice;
+        document.querySelectorAll('#modalModifiersContainer input:checked').forEach(input => {
+            price += parseFloat(input.dataset.price);
+        });
+        const quantity = parseInt(document.getElementById('modalItemQuantity').textContent);
+        const total = price * quantity;
+
+        const btn = document.getElementById('modalAddToCartBtn');
+        btn.textContent = `Add to Order - $${total.toFixed(2)}`;
+    }
+
+    function addToCart(id, name, price, quantity, notes, modifiers) {
         let cart = getCart();
         // For simplicity, we'll create a unique entry for items with notes, even if the ID is the same.
         // A more complex implementation could merge quantities if notes are identical.
-        const cartId = id + '-' + Date.now(); // Simple unique ID for each addition
-        cart.push({ cartId, id, name, price, quantity, notes });
+        const modifierKey = modifiers.map(m => m.id).sort().join('-');
+        const cartId = `${id}-${notes}-${modifierKey}-${Date.now()}`; // Unique ID for each distinct combination
+        cart.push({ cartId, id, name, price, quantity, notes, modifiers });
         saveCart(cart);
         
         // Simple haptic feedback/visual cue

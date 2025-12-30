@@ -45,6 +45,16 @@
                             <div class="form-text">This will be added to the order total on receipts.</div>
                         </div>
 
+                        <div class="mb-4">
+                            <label for="timezone-select" class="form-label small fw-bold text-uppercase text-muted">Timezone</label>
+                            <select id="timezone-select" name="timezone" class="form-select">
+                                {% for tz in timezones %}
+                                <option value="{{ tz }}" {% if restaurant.timezone == tz %}selected{% endif %}>{{ tz.replace('_', ' ') }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Set your local timezone for accurate menu scheduling.</div>
+                        </div>
+
                         <div class="d-grid mt-5">
                             <button type="submit" class="btn btn-primary btn-lg rounded-pill py-3 fw-bold">Save Settings</button>
                         </div>

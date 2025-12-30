@@ -28,7 +28,12 @@ def preload_restaurant_data(restaurant_id):
     db.session.add_all([cat1, cat2])
 
     # 4. Menu
-    menu = Menu(name="All Day", restaurant_id=restaurant_id)
+    menu = Menu(
+        name="All Day", 
+        restaurant_id=restaurant_id,
+        is_active=True,
+        active_days='0,1,2,3,4,5,6' # Active all week
+    )
     menu.categories.append(cat1)
     menu.categories.append(cat2)
     db.session.add(menu)

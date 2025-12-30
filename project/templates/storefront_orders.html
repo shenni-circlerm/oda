@@ -246,12 +246,21 @@
                                         {{ item.menu_item.name }}
                                         <span class="unit-price-tag ms-2">@ ${{ "%.2f"|format(item.menu_item.price) }}</span>
                                     </div>
-                                    {% if item.notes %}<div class="small text-danger">{{ item.notes }}</div>{% endif %}
+                                    {% if item.notes %}<div class="small text-danger fst-italic"><i class="bi bi-chat-left-text me-1"></i>{{ item.notes }}</div>{% endif %}
+                                    {% if item.selected_modifiers %}
+                                    <div class="small text-muted ps-3">
+                                        {% for mod in item.selected_modifiers %}+ {{ mod.name }}<br>{% endfor %}
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-3">
                                 <div class="text-end">
-                                    <div class="fw-bold text-dark">${{ "%.2f"|format(item.menu_item.price * item.quantity) }}</div>
+                                    {% set modifier_total = item.selected_modifiers|sum(attribute='price_override') %}
+                                    {% set item_total = (item.menu_item.price + modifier_total) * item.quantity %}
+                                    <div class="fw-bold text-dark">
+                                        ${{ "%.2f"|format(item_total) }}
+                                    </div>
                                 </div>
                                 <button class="edit-item-btn" onclick="openEditItemModal('{{ item.id }}', '{{ item.menu_item.name|replace("'", "\\'") }}', {{ item.quantity }})">
                                     <i class="bi bi-pencil-square"></i>
@@ -320,7 +329,11 @@
                         {% for item in selected_order.items %}
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem;">
                             <div style="flex: 1;">{{ item.quantity }}x {{ item.menu_item.name }}</div>
-                            <div style="text-align: right;">${{ "%.2f"|format(item.menu_item.price * item.quantity) }}</div>
+                            {% set modifier_total = item.selected_modifiers|sum(attribute='price_override') %}
+                            {% set item_total = (item.menu_item.price + modifier_total) * item.quantity %}
+                            <div style="text-align: right;">
+                                ${{ "%.2f"|format(item_total) }}
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
@@ -363,6 +376,9 @@
 
 {% if selected_order %}
 <!-- Add Item Modal -->
+<script>
+    const menuData = {{ menu_data_json|tojson|safe }};
+</script>
 <div class="modal fade" id="addItemModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0 shadow">
@@ -370,10 +386,7 @@
                 <h5 class="modal-title fw-bold">Add Items to Order</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
-                <input type="hidden" name="action" value="add_multiple_items">
-                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
-                <div class="modal-body">
+            <div class="modal-body">
                     <div class="mb-3 sticky-top bg-white pt-2 pb-1">
                         <input type="search" id="item-search-input" class="form-control" placeholder="Search by name or SKU...">
                     </div>
@@ -392,8 +405,8 @@
 
                     <div id="menu-item-list">
                         {% for category in categories %}
-                            {% for item in category.items if item.is_available %}
-                                <div class="menu-item-row d-flex justify-content-between align-items-center py-3 border-bottom" 
+                            {% for item in menu_items if item.is_available and category in item.categories %}
+                                <div class="menu-item-row d-flex justify-content-between align-items-center py-3 border-bottom"
                                      data-item-name="{{ item.name|lower|trim }}" 
                                      data-item-sku="{{ (item.sku or '')|lower|trim }}" 
                                      data-category-name="{{ category.name|lower|replace(' ', '-')|trim }}">
@@ -401,19 +414,54 @@
                                         <div class="fw-bold">{{ item.name }}</div>
                                         <div class="small text-muted">${{ "%.2f"|format(item.price) }}</div>
                                     </div>
-                                    <div class="qty-control shadow-sm">
-                                        <button type="button" class="qty-btn" onclick="adjustQuantity('quantity_{{ item.id }}', -1)"><i class="bi bi-dash"></i></button>
-                                        <input type="number" name="quantity_{{ item.id }}" id="quantity_{{ item.id }}" class="form-control text-center fw-bold p-0 bg-transparent border-0" style="width: 30px;" value="0" min="0" readonly>
-                                        <button type="button" class="qty-btn" onclick="adjustQuantity('quantity_{{ item.id }}', 1)"><i class="bi bi-plus"></i></button>
-                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="openItemOptionsModal({{ item.id }})">
+                                        Add <i class="bi bi-chevron-right"></i>
+                                    </button>
                                 </div>
                             {% endfor %}
                         {% endfor %}
                     </div>
                 </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item with Options Modal -->
+<div class="modal fade" id="addItemWithOptionsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="itemOptionsName">Item Name</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                <input type="hidden" name="action" value="add_item_with_options">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                <input type="hidden" name="menu_item_id" id="itemOptionsId">
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <label class="form-label fw-bold mb-0">Quantity</label>
+                        <div class="qty-control shadow-sm">
+                            <button type="button" class="qty-btn" onclick="adjustQuantity('itemOptionsQuantity', -1)"><i class="bi bi-dash"></i></button>
+                            <input type="number" name="quantity" id="itemOptionsQuantity" class="form-control text-center fw-bold p-0 bg-transparent border-0" style="width: 30px;" value="1" min="1">
+                            <button type="button" class="qty-btn" onclick="adjustQuantity('itemOptionsQuantity', 1)"><i class="bi bi-plus"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Modifiers injected here -->
+                    <div id="itemOptionsModifiers"></div>
+
+                    <div class="mt-3">
+                        <label class="form-label fw-bold">Notes</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="e.g. Extra spicy"></textarea>
+                    </div>
+                </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Selected Items</button>
+                    <button type="submit" class="btn btn-primary">Add to Order <span id="itemOptionsPriceDisplay"></span></button>
                 </div>
             </form>
         </div>
@@ -568,6 +616,72 @@
 
 {% block scripts %}
 <script>
+    const addItemModal = new bootstrap.Modal(document.getElementById('addItemModal'));
+    const addItemWithOptionsModal = new bootstrap.Modal(document.getElementById('addItemWithOptionsModal'));
+
+    function openItemOptionsModal(itemId) {
+        const itemData = menuData[itemId];
+        if (!itemData) return;
+
+        document.getElementById('itemOptionsName').textContent = itemData.name;
+        document.getElementById('itemOptionsId').value = itemData.id;
+        document.getElementById('itemOptionsQuantity').value = 1;
+
+        const modifiersContainer = document.getElementById('itemOptionsModifiers');
+        modifiersContainer.innerHTML = '';
+        if (itemData.modifiers && itemData.modifiers.length > 0) {
+            itemData.modifiers.forEach(group => {
+                let optionsHtml = '';
+                group.options.forEach(opt => {
+                    const inputType = group.selection_type === 'multiple' ? 'checkbox' : 'radio';
+                    optionsHtml += `
+                        <div class="form-check">
+                            <input class="form-check-input" type="${inputType}" name="modifiers" id="store-opt-${opt.id}" value="${opt.id}" data-price="${opt.price_override}" onchange="updateStorefrontModalPrice()">
+                            <label class="form-check-label d-flex justify-content-between w-100" for="store-opt-${opt.id}">
+                                <span>${opt.name}</span>
+                                ${opt.price_override > 0 ? `<span>+$${opt.price_override.toFixed(2)}</span>` : ''}
+                            </label>
+                        </div>
+                    `;
+                });
+                modifiersContainer.innerHTML += `
+                    <div class="mb-3" data-modifier-group-id="${group.id}" data-is-required="${group.is_required}">
+                        <label class="form-label fw-bold">${group.name}</label>
+                        ${optionsHtml}
+                    </div>
+                `;
+            });
+        }
+
+        addItemModal.hide();
+        addItemWithOptionsModal.show();
+        updateStorefrontModalPrice();
+    }
+
+    function updateStorefrontModalPrice() {
+        const itemId = document.getElementById('itemOptionsId').value;
+        if (!itemId) return;
+
+        const itemData = menuData[itemId];
+        let price = itemData.price;
+
+        document.querySelectorAll('#itemOptionsModifiers input:checked').forEach(input => {
+            const priceOverride = parseFloat(input.dataset.price);
+            if (!isNaN(priceOverride)) {
+                price += priceOverride;
+            }
+        });
+
+        const quantity = parseInt(document.getElementById('itemOptionsQuantity').value) || 1;
+        const total = price * quantity;
+
+        const priceDisplay = document.getElementById('itemOptionsPriceDisplay');
+        if (priceDisplay) {
+            priceDisplay.textContent = `($${total.toFixed(2)})`;
+        }
+    }
+</script>
+<script>
     function openEditItemModal(itemId, itemName, quantity) {
         document.getElementById('editItemId').value = itemId;
         document.getElementById('editItemName').textContent = itemName;
@@ -583,7 +697,7 @@
 
     function adjustQuantity(inputId, change) {
         const input = document.getElementById(inputId);
-        if (input) input.value = Math.max(0, (parseInt(input.value) || 0) + change);
+        if (input) input.value = Math.max(1, (parseInt(input.value) || 1) + change);
     }
 
     function updateElapsedTimes() {
@@ -655,6 +769,32 @@
             }
         }, 15000);
 
+        // Add validation for required modifiers in storefront modal
+        const addItemWithOptionsForm = document.querySelector('#addItemWithOptionsModal form');
+        if (addItemWithOptionsForm) {
+            addItemWithOptionsForm.addEventListener('submit', function(event) {
+                const modifierGroups = document.querySelectorAll('#itemOptionsModifiers [data-modifier-group-id]');
+                let validationPassed = true;
+                let requiredGroups = [];
+
+                modifierGroups.forEach(groupEl => {
+                    const isRequired = groupEl.dataset.isRequired === 'true';
+                    if (isRequired) {
+                        const selectedOption = groupEl.querySelector(`input:checked`);
+                        if (!selectedOption) {
+                            validationPassed = false;
+                            const groupName = groupEl.querySelector('.form-label.fw-bold').textContent.replace('*', '').trim();
+                            requiredGroups.push(groupName);
+                        }
+                    }
+                });
+
+                if (!validationPassed) {
+                    event.preventDefault(); // Stop form submission
+                    alert(`Please make a selection for the following required options: ${requiredGroups.join(', ')}`);
+                }
+            });
+        }
     });
 
     function printReceipt() {

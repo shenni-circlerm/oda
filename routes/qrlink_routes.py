@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, request, jsonify, abort
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from datetime import datetime
+import pytz
 
-from project.models import Restaurant, Table, Category, Order, OrderItem, Menu
+from project.models import Restaurant, Table, Category, Order, OrderItem, Menu, MenuItem, ModifierGroup, ModifierOption
 from extensions import db, socketio
 
 qrlink_bp = Blueprint('qrlink', __name__, url_prefix='/qrlink')
@@ -27,12 +28,79 @@ def customer_menu(slug):
     table_number = request.args.get('table')
     table = Table.query.filter_by(restaurant_id=restaurant.id, number=table_number).first()
 
+    # 1. Get current time and day in the restaurant's local timezone
+    try:
+        restaurant_tz = pytz.timezone(restaurant.timezone or 'UTC')
+    except pytz.UnknownTimeZoneError:
+        restaurant_tz = pytz.timezone('UTC')
+
+    now_local = datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(restaurant_tz)
+    current_time = now_local.time()
+    current_day_index = str(now_local.weekday()) # Monday is 0, Sunday is 6
+    
+    print(f"\n--- DEBUG: customer_menu for slug: {slug} ---")
+    print(f"Restaurant Timezone: {restaurant_tz}")
+    print(f"Current Local Time: {current_time}, Day Index: {current_day_index} (Mon=0)")
+
+    # 2. Find all potentially active menus
+    all_menus = Menu.query.filter_by(restaurant_id=restaurant.id, is_active=True).options(selectinload(Menu.categories)).all()
+    
+    active_menus = []
+    print(f"Checking {len(all_menus)} active menus for schedule...")
+    for menu in all_menus:
+        # Corrected logic: An empty string for active_days should mean it's inactive.
+        # `None` means it has no day-based restrictions.
+        day_match = menu.active_days and current_day_index in menu.active_days.split(',')
+        
+        time_match = False
+        if not menu.start_time or not menu.end_time:
+            time_match = True # No time restriction
+        elif menu.start_time <= menu.end_time: # Same day schedule
+            if menu.start_time <= current_time <= menu.end_time:
+                time_match = True
+        else: # Overnight schedule (e.g., 10pm - 2am)
+            if current_time >= menu.start_time or current_time <= menu.end_time:
+                time_match = True
+        
+        print(f"  - Menu: '{menu.name}' (Active Days: '{menu.active_days}') -> Day Match: {day_match}, Time Match: {time_match}")
+        if day_match and time_match:
+            active_menus.append(menu)
+
+    print(f"Found {len(active_menus)} currently scheduled menus.")
+
+    # 3. Get a unique set of active category IDs from the active menus
+    active_category_ids = {cat.id for menu in active_menus for cat in menu.categories if cat.is_active}
+
+    # 4. Fetch the final list of categories to display
     categories = Category.query.filter(
-        Category.restaurant_id == restaurant.id,
-        Category.is_active == True
+        Category.id.in_(list(active_category_ids))
+    ).options(
+        selectinload(Category.items).selectinload(MenuItem.modifiers).selectinload(ModifierGroup.options)
     ).order_by(Category.name).all()
 
-    return render_template('qrlink_store.html', restaurant=restaurant, table=table, categories=categories)
+    # Serialize data for JavaScript
+    menu_data = {}
+    all_items = [item for cat in categories for item in cat.items]
+    for item in all_items:
+        menu_data[item.id] = {
+            'id': item.id,
+            'name': item.name,
+            'price': item.price,
+            'description': item.description,
+            'modifiers': [{
+                'id': group.id,
+                'name': group.name,
+                'selection_type': group.selection_type,
+                'is_required': group.is_required,
+                'options': [{
+                    'id': opt.id,
+                    'name': opt.name,
+                    'price_override': opt.price_override
+                } for opt in group.options]
+            } for group in item.modifiers]
+        }
+
+    return render_template('qrlink_store.html', restaurant=restaurant, table=table, categories=categories, menu_data_json=menu_data)
 
 @qrlink_bp.route('/<slug>/checkout')
 def customer_checkout(slug):
@@ -78,12 +146,18 @@ def place_order():
     db.session.flush() # Flush to get the new_order.id
 
     for item_data in data['items']:
+        modifier_ids = item_data.get('modifiers', [])
         order_item = OrderItem(
             order_id=new_order.id, 
             menu_item_id=item_data['menu_item_id'], 
             quantity=item_data['quantity'],
             notes=item_data.get('notes')
         )
+        if modifier_ids:
+            options = ModifierOption.query.filter(ModifierOption.id.in_(modifier_ids)).all()
+            for option in options:
+                order_item.selected_modifiers.append(option)
+
         db.session.add(order_item)
 
     db.session.commit()

@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 import re
+import pytz
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import selectinload
@@ -143,6 +144,7 @@ def office_undo_delete_staff():
 @admin_required
 def office_settings():
     restaurant = db.session.get(Restaurant, current_user.restaurant_id)
+    timezones = pytz.common_timezones
     if request.method == 'POST':
         restaurant.address = request.form.get('address')
         restaurant.phone_number = request.form.get('phone_number')
@@ -153,12 +155,13 @@ def office_settings():
             restaurant.tax_rate = float(tax_rate_percent) / 100.0
         except (ValueError, TypeError):
             restaurant.tax_rate = 0.0
+        restaurant.timezone = request.form.get('timezone', 'UTC')
         
         db.session.commit()
         flash('Business settings updated.')
         return redirect(url_for('admin.office_settings'))
         
-    return render_template('office_settings.html', restaurant=restaurant)
+    return render_template('office_settings.html', restaurant=restaurant, timezones=timezones)
 
 @admin_bp.route('/menu/menu')
 @login_required
@@ -1487,7 +1490,10 @@ def storefront_orders():
                 'preparing': sum(1 for item in order.items if item.status == 'preparing'),
                 'ready': sum(1 for item in order.items if item.status == 'ready')
             }
-            subtotal = sum(item.menu_item.price * item.quantity for item in order.items)
+            subtotal = 0
+            for item in order.items:
+                modifier_price = sum(mod.price_override for mod in item.selected_modifiers)
+                subtotal += (item.menu_item.price + modifier_price) * item.quantity
             tax_rate = restaurant.tax_rate or 0.0
             order.subtotal = subtotal
             order.tax_amount = subtotal * tax_rate
@@ -1498,7 +1504,9 @@ def storefront_orders():
             order.tax_amount = 0
             order.total_price = 0
 
-    menu_items = MenuItem.query.filter_by(restaurant_id=restaurant.id, is_available=True).all()
+    menu_items = MenuItem.query.filter_by(restaurant_id=restaurant.id, is_available=True).options(
+        selectinload(MenuItem.modifiers).selectinload(ModifierGroup.options)
+    ).all()
     
     # A table is unavailable for a new order if it has an active, unpaid order.
     # 'paid' orders are still in the main `orders` list for display, but don't block a new order.
@@ -1523,8 +1531,26 @@ def storefront_orders():
         selectinload(Category.items)
     ).order_by(Category.name).all()
 
+    # Serialize menu data for JS
+    menu_data_json = {}
+    for item in menu_items:
+        menu_data_json[item.id] = {
+            'id': item.id,
+            'name': item.name,
+            'price': item.price,
+            'modifiers': [{
+                'id': group.id,
+                'name': group.name,
+                'selection_type': group.selection_type,
+                'is_required': group.is_required,
+                'options': [{'id': opt.id, 'name': opt.name, 'price_override': opt.price_override} for opt in group.options]
+            } for group in item.modifiers]
+        }
 
-    return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables, categories=categories, payment_filter=payment_filter, date_filter=date_filter)
+
+    return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, 
+                           menu_items=menu_items, available_tables=available_tables, categories=categories, 
+                           payment_filter=payment_filter, date_filter=date_filter, menu_data_json=menu_data_json)
 
 @admin_bp.route('/storefront/payment/<int:order_id>', methods=['GET', 'POST'])
 @login_required

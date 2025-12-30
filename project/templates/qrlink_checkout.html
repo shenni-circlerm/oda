@@ -193,12 +193,24 @@
         } else {
             checkoutButton.disabled = false;
             cart.forEach(item => {
-                subtotal += item.price * item.quantity;
+                let itemTotal = item.price; // Price already includes modifiers
+                subtotal += itemTotal * item.quantity;
+
+                let modifiersHtml = '';
+                if (item.modifiers && item.modifiers.length > 0) {
+                    modifiersHtml = '<ul class="list-unstyled small text-muted ps-3 mb-0">';
+                    item.modifiers.forEach(mod => {
+                        modifiersHtml += `<li>+ ${mod.name}</li>`;
+                    });
+                    modifiersHtml += '</ul>';
+                }
+
                 container.innerHTML += `
                     <div class="d-flex justify-content-between align-items-center order-item">
                         <div>
                             <h6 class="fw-bold mb-1">${item.name}</h6>
                             ${item.notes ? `<p class="small text-danger mb-1 fst-italic">Note: ${item.notes}</p>` : ''}
+                            ${modifiersHtml}
                             <span class="text-muted small">$${item.price.toFixed(2)}</span>
                         </div>
                         <div class="qty-control shadow-sm">
@@ -239,7 +251,12 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
         btn.disabled = true;
 
-        const itemsForServer = cart.map(item => ({ menu_item_id: item.id, quantity: item.quantity, notes: item.notes }));
+        const itemsForServer = cart.map(item => ({ 
+            menu_item_id: item.id, 
+            quantity: item.quantity, 
+            notes: item.notes,
+            modifiers: item.modifiers ? item.modifiers.map(m => m.id) : []
+        }));
 
         fetch("{{ url_for('qrlink.place_order') }}", {
             method: 'POST',

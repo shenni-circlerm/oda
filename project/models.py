@@ -28,6 +28,7 @@ class Restaurant(db.Model):
     phone_number = db.Column(db.String(50))
     tax_id = db.Column(db.String(100))
     tax_rate = db.Column(db.Float, default=0.0) # e.g., 7.5% is stored as 0.075
+    timezone = db.Column(db.String(100), default='UTC')
     
     items = db.relationship('MenuItem', backref='restaurant')
     tables = db.relationship('Table', backref='restaurant')
@@ -150,6 +151,11 @@ class ModifierGroup(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     options = db.relationship('ModifierOption', backref='group', cascade="all, delete-orphan")
 
+order_item_modifier_options = db.Table('order_item_modifier_options',
+    db.Column('order_item_id', db.Integer, db.ForeignKey('order_item.id'), primary_key=True),
+    db.Column('modifier_option_id', db.Integer, db.ForeignKey('modifier_option.id'), primary_key=True)
+)
+
 class ModifierOption(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50)) # e.g., "Extra Beef"
@@ -170,8 +176,8 @@ class Order(db.Model):
     table_id = db.Column(db.Integer, db.ForeignKey('table.id'))
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='pending')
-    items = db.relationship('OrderItem', backref='order')
+    status = db.Column(db.String(20), default='pending') # pending, preparing, ready, served, paid, completed, cancelled
+    items = db.relationship('OrderItem', backref='order', cascade="all, delete-orphan")
     table = db.relationship('Table')
 
 class OrderItem(db.Model):
@@ -183,13 +189,10 @@ class OrderItem(db.Model):
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     menu_item = db.relationship('MenuItem')
+    selected_modifiers = db.relationship('ModifierOption', secondary=order_item_modifier_options)
 
 class Station(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     restaurant = db.relationship('Restaurant', backref='stations')
-
-
-
-

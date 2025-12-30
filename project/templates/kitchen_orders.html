@@ -169,6 +169,11 @@
                         {% if item.notes %}
                         <div class="p-2 mt-2 bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-3 small fst-italic"><i class="bi bi-chat-left-text-fill me-2"></i>{{ item.notes }}</div>
                         {% endif %}
+                        {% if item.selected_modifiers %}
+                        <div class="ps-3 mt-2">
+                            {% for mod in item.selected_modifiers %}<div class="small text-muted fw-bold">+ {{ mod.name }}</div>{% endfor %}
+                        </div>
+                        {% endif %}
                         <div class="d-flex gap-2 mt-2">
                             {% if item.status == 'ready' %}
                             <button class="btn btn-sm btn-outline-success flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'served', this)">
@@ -231,6 +236,11 @@
                         <h5 class="fw-bold mb-1">{{ item.quantity }}x {{ item.menu_item.name }}</h5>
                         {% if item.notes %}
                         <div class="p-2 mt-2 bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-3 small fst-italic"><i class="bi bi-chat-left-text-fill me-2"></i>{{ item.notes }}</div>
+                        {% endif %}
+                        {% if item.selected_modifiers %}
+                        <div class="ps-3 mt-2">
+                            {% for mod in item.selected_modifiers %}<div class="small text-muted fw-bold">+ {{ mod.name }}</div>{% endfor %}
+                        </div>
                         {% endif %}
                         <div class="d-flex gap-2 mt-2">
                             {% if item.status == 'ready' %}
