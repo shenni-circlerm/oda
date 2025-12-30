@@ -57,7 +57,7 @@
     .item-ticket:active { transform: scale(0.98); }
     
     .status-pending { border-left-color: #fbbf24; }
-    .status-preparing { border-left-color: var(--primary-color); background: #fef2f2; }
+    .status-preparing { border-left-color: #0d6efd; background: #eff6ff; }
     
     .timer { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.8rem; }
 
@@ -99,6 +99,10 @@
             <input type="checkbox" class="btn-check" id="st-{{ station.id }}" data-station-id="{{ station.id }}">
             <label class="btn btn-sm btn-outline-primary border-0 rounded-pill px-3" for="st-{{ station.id }}">{{ station.name }}</label>
             {% endfor %}
+            {% if uncategorized_items %}
+            <input type="checkbox" class="btn-check" id="st-uncategorized" data-station-id="uncategorized">
+            <label class="btn btn-sm btn-outline-primary border-0 rounded-pill px-3" for="st-uncategorized">No Station</label>
+            {% endif %}
         </div>
         {% endif %}
     </div>
@@ -129,13 +133,30 @@
                 </div>
                 <div class="station-body">
                     {% for item in station_items[station.id] %}
-                    <div class="item-ticket status-{{ item.status }}">
+                    <div class="item-ticket status-{{ item.status }}" draggable="true" data-menu-item-id="{{ item.menu_item.id }}">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
-                            <span class="timer text-danger" data-timestamp="{{ item.created_at.isoformat() }}Z"><i class="bi bi-clock-history me-1"></i>00:00</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
+                                {% if item.status == 'preparing' %}<span class="badge bg-primary rounded-pill">Cooking</span>{% endif %}
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-link btn-sm p-0 text-muted" onclick="printTicket('{{ item.menu_item.name|replace("'", "\\'") }}', '{{ item.quantity }}', '{{ item.order.table.number }}', '{{ (item.notes or '')|replace("'", "\\'") }}')">
+                                    <i class="bi bi-printer"></i>
+                                </button>
+                                <span class="timer text-danger" data-timestamp="{{ item.created_at.isoformat() }}Z"><i class="bi bi-clock-history me-1"></i>00:00</span>
+                            </div>
                         </div>
                         <h5 class="fw-bold mb-1">{{ item.quantity }}x {{ item.menu_item.name }}</h5>
-                        <button class="btn btn-sm btn-primary w-100 rounded-pill">Done</button>
+                        <div class="d-flex gap-2 mt-2">
+                            {% if item.status == 'pending' %}
+                            <button class="btn btn-sm btn-outline-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'preparing', this)">
+                                <i class="bi bi-fire"></i> Cook
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'complete', this)">
+                                <i class="bi bi-check2"></i> Done
+                            </button>
+                        </div>
                     </div>
                     {% else %}
                         <div class="empty-station-placeholder">
@@ -159,13 +180,30 @@
                 </div>
                 <div class="station-body">
                     {% for item in uncategorized_items %}
-                    <div class="item-ticket status-{{ item.status }}">
+                    <div class="item-ticket status-{{ item.status }}" draggable="true" data-menu-item-id="{{ item.menu_item.id }}">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
-                            <span class="timer text-danger" data-timestamp="{{ item.created_at.isoformat() }}Z"><i class="bi bi-clock-history me-1"></i>00:00</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
+                                {% if item.status == 'preparing' %}<span class="badge bg-primary rounded-pill">Cooking</span>{% endif %}
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-link btn-sm p-0 text-muted" onclick="printTicket('{{ item.menu_item.name|replace("'", "\\'") }}', '{{ item.quantity }}', '{{ item.order.table.number }}', '{{ (item.notes or '')|replace("'", "\\'") }}')">
+                                    <i class="bi bi-printer"></i>
+                                </button>
+                                <span class="timer text-danger" data-timestamp="{{ item.created_at.isoformat() }}Z"><i class="bi bi-clock-history me-1"></i>00:00</span>
+                            </div>
                         </div>
                         <h5 class="fw-bold mb-1">{{ item.quantity }}x {{ item.menu_item.name }}</h5>
-                        <button class="btn btn-sm btn-primary w-100 rounded-pill">Done</button>
+                        <div class="d-flex gap-2 mt-2">
+                            {% if item.status == 'pending' %}
+                            <button class="btn btn-sm btn-outline-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'preparing', this)">
+                                <i class="bi bi-fire"></i> Cook
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'complete', this)">
+                                <i class="bi bi-check2"></i> Done
+                            </button>
+                        </div>
                     </div>
                     {% else %}
                         <div class="empty-station-placeholder">
@@ -205,6 +243,215 @@ function updateElapsedTimes() {
 document.addEventListener('DOMContentLoaded', function() {
     updateElapsedTimes();
     setInterval(updateElapsedTimes, 1000);
+
+    // 1. Auto-refresh page every 15 seconds to check for new orders
+    setTimeout(function() {
+        window.location.reload();
+    }, 15000);
+
+    // 2. Station Filtering Logic
+    const allCheck = document.getElementById('filter-all');
+    const stationChecks = document.querySelectorAll('.btn-check[data-station-id]');
+    const columns = document.querySelectorAll('.station-col');
+
+    // Restore filter state from local storage
+    const savedFilters = JSON.parse(localStorage.getItem('kitchen_station_filters') || '[]');
+    if (savedFilters.length > 0 && !savedFilters.includes('all')) {
+        if(allCheck) allCheck.checked = false;
+        stationChecks.forEach(cb => {
+            cb.checked = savedFilters.includes(cb.dataset.stationId);
+        });
+    } else {
+        if(allCheck) allCheck.checked = true;
+        stationChecks.forEach(cb => cb.checked = false);
+    }
+    // Apply visibility based on restored state
+    updateVisibility();
+
+    function updateVisibility() {
+        const showAll = allCheck.checked;
+        const activeIds = Array.from(stationChecks)
+            .filter(cb => cb.checked)
+            .map(cb => cb.dataset.stationId);
+
+        columns.forEach(col => {
+            const colId = col.dataset.stationId;
+            if (showAll || activeIds.includes(colId)) {
+                col.style.display = 'flex';
+            } else {
+                col.style.display = 'none';
+            }
+        });
+    }
+
+    if(allCheck) {
+        allCheck.addEventListener('change', function() {
+            if(this.checked) {
+                stationChecks.forEach(cb => cb.checked = false);
+                localStorage.setItem('kitchen_station_filters', JSON.stringify(['all']));
+            }
+            updateVisibility();
+        });
+
+        stationChecks.forEach(cb => {
+            cb.addEventListener('change', function() {
+                if(this.checked) allCheck.checked = false;
+                if(!this.checked && Array.from(stationChecks).every(c => !c.checked)) {
+                    allCheck.checked = true;
+                    localStorage.setItem('kitchen_station_filters', JSON.stringify(['all']));
+                } else {
+                    // Save specific station selection
+                    const activeIds = Array.from(stationChecks)
+                        .filter(c => c.checked)
+                        .map(c => c.dataset.stationId);
+                    localStorage.setItem('kitchen_station_filters', JSON.stringify(activeIds));
+                }
+                updateVisibility();
+            });
+        });
+    }
+
+    // 3. Item Status Logic (Preparing / Complete)
+    window.updateItemStatus = function(itemId, status, btn) {
+        const card = btn.closest('.item-ticket');
+        const originalContent = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        // Send request to backend
+        fetch('/kitchen/item/' + itemId + '/' + status, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        }).then(res => {
+            if (res.ok) {
+                if (status === 'complete') {
+                    card.style.transition = 'all 0.3s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.9)';
+                    setTimeout(() => card.remove(), 300);
+                } else if (status === 'preparing') {
+                    card.classList.remove('status-pending');
+                    card.classList.add('status-preparing');
+                    btn.remove(); // Remove the "Cook" button
+
+                    // Add visual badge to header for immediate feedback
+                    const headerGroup = card.querySelector('.d-flex.align-items-center.gap-2');
+                    if(headerGroup) {
+                        headerGroup.insertAdjacentHTML('beforeend', '<span class="badge bg-primary rounded-pill">Cooking</span>');
+                    }
+                }
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }).catch(err => {
+            console.error('Error completing item:', err);
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        });
+    };
+
+    // 4. Drag and Drop Logic (Kanban)
+    const draggables = document.querySelectorAll('.item-ticket');
+    const containers = document.querySelectorAll('.station-body');
+
+    draggables.forEach(draggable => {
+        draggable.addEventListener('dragstart', () => {
+            draggable.classList.add('dragging');
+            draggable.style.opacity = '0.5';
+        });
+
+        draggable.addEventListener('dragend', () => {
+            draggable.classList.remove('dragging');
+            draggable.style.opacity = '1';
+        });
+    });
+
+    containers.forEach(container => {
+        container.addEventListener('dragover', e => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            const draggable = document.querySelector('.dragging');
+            if (draggable) {
+                if (afterElement == null) {
+                    container.appendChild(draggable);
+                } else {
+                    container.insertBefore(draggable, afterElement);
+                }
+            }
+        });
+
+        container.addEventListener('drop', e => {
+            e.preventDefault();
+            const draggable = document.querySelector('.dragging');
+            if (!draggable) return;
+            
+            const stationCol = container.closest('.station-col');
+            const newStationId = stationCol.dataset.stationId;
+            const menuItemId = draggable.dataset.menuItemId;
+
+            // Send update to backend to reconfigure the menu item's default station
+            fetch('/kitchen/update_item_station', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    menu_item_id: menuItemId,
+                    station_id: newStationId === 'uncategorized' ? null : newStationId
+                })
+            }).then(res => {
+                if(res.ok) {
+                    // Visual feedback is already handled by the drop
+                    // The auto-refresh will eventually sync other items of the same type
+                }
+            });
+        });
+    });
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.item-ticket:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // 5. Print Ticket Logic
+    window.printTicket = function(name, qty, table, notes) {
+        const content = `
+            <div style="font-family: 'Courier New', monospace; width: 300px; padding: 10px; color: black;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 10px;">
+                    <h2 style="margin: 0; font-size: 1.5rem;">Table ${table}</h2>
+                    <span style="font-size: 0.8rem;">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">
+                    ${qty} x ${name}
+                </div>
+                ${notes ? `<div style="margin-top: 5px; font-style: italic;">Note: ${notes}</div>` : ''}
+                <div style="margin-top: 20px; border-top: 1px solid black; padding-top: 5px; text-align: center; font-size: 0.8rem;">
+                    KITCHEN TICKET
+                </div>
+            </div>
+        `;
+        
+        const printWindow = window.open('', '', 'height=500,width=400');
+        printWindow.document.write('<html><head><title>Print Ticket</title></head><body style="margin:0">');
+        printWindow.document.write(content);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }, 500);
+    };
 });
 </script>
 {% endblock %}

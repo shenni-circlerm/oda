@@ -111,8 +111,8 @@
 
                     <div class="status-timeline">
                         <div class="status-step active small">Order Received</div>
-                        <div class="status-step small">Preparing Food</div>
-                        <div class="status-step small" style="padding-bottom: 0;">Ready to Serve</div>
+                        <div class="status-step {% if order.status in ['preparing', 'ready', 'served', 'completed', 'paid'] %}active{% endif %} small">Preparing Food</div>
+                        <div class="status-step {% if order.status in ['ready', 'served', 'completed', 'paid'] %}active{% endif %} small" style="padding-bottom: 0;">Ready to Serve</div>
                     </div>
 
                     <div class="mt-4 pt-3 border-top">
@@ -131,4 +131,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh every 10 seconds to check order status
+    setTimeout(function() {
+        window.location.reload();
+    }, 10000);
+</script>
 {% endblock %}

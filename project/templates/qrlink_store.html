@@ -123,7 +123,13 @@
                                     </div>
                                 </div>
                                 <div class="flex-shrink-0">
+                                    {% if item.image_data %}
                                     <img src="{{ url_for('admin.serve_menu_image', item_id=item.id) }}" class="item-image" alt="{{ item.name }}">
+                                    {% else %}
+                                    <div class="item-image d-flex align-items-center justify-content-center bg-light text-muted">
+                                        <i class="bi bi-egg-fried fs-1"></i>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

@@ -357,6 +357,57 @@ def storefront_update_order_item_status(item_id):
             return jsonify({'success': True, 'item_id': item.id, 'new_status': new_status})
     return jsonify({'success': False}), 403
 
+@admin_bp.route('/kitchen/item/<int:item_id>/<string:status>', methods=['POST'])
+@login_required
+def kitchen_update_item_status(item_id, status):
+    print(f"DEBUG: Kitchen update request - Item: {item_id}, Status: {status}")
+    
+    item = db.session.get(OrderItem, item_id)
+    if not item:
+        print(f"DEBUG: Item {item_id} not found")
+        return jsonify({'success': False, 'message': 'Item not found'}), 404
+        
+    if item.order.restaurant_id != current_user.restaurant_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    # Map 'complete' from frontend to 'ready' for database
+    db_status = 'ready' if status == 'complete' else status
+    
+    if db_status in ['preparing', 'ready']:
+        item.status = db_status
+        db.session.commit()
+        print(f"DEBUG: Item {item_id} updated to {db_status}")
+        
+        # Check if entire order is ready
+        order = item.order
+        if all(i.status == 'ready' for i in order.items):
+            if order.status != 'ready':
+                order.status = 'ready'
+                db.session.commit()
+                print(f"DEBUG: Order {order.id} is now fully READY")
+                socketio.emit('status_change', {'order_id': order.id, 'new_status': 'ready'}, room=f"order_{order.id}")
+
+        return jsonify({'success': True})
+    
+    return jsonify({'success': False, 'message': 'Invalid status'}), 400
+
+@admin_bp.route('/kitchen/update_item_station', methods=['POST'])
+@login_required
+def kitchen_update_item_station():
+    data = request.get_json()
+    menu_item_id = data.get('menu_item_id')
+    station_id = data.get('station_id')
+
+    menu_item = db.session.get(MenuItem, menu_item_id)
+
+    if menu_item and menu_item.restaurant_id == current_user.restaurant_id:
+        menu_item.station_id = station_id if station_id != 'uncategorized' else None
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'"{menu_item.name}" assigned to new station.'})
+
+    return jsonify({'success': False, 'message': 'Item or station not found.'}), 404
+
+
 @admin_bp.route('/kitchen/item/<int:item_id>/assign-station', methods=['POST'])
 @login_required
 def kitchen_assign_item_to_station(item_id):
@@ -458,6 +509,17 @@ def kitchen_manage_stations():
     
     stations = Station.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     return render_template('kitchen_stations.html', stations=stations)
+
+@admin_bp.route('/kitchen/stations/edit/<int:station_id>', methods=['POST'])
+@login_required
+def kitchen_edit_station(station_id):
+    station = Station.query.filter_by(id=station_id, restaurant_id=current_user.restaurant_id).first_or_404()
+    name = request.form.get('name')
+    if name:
+        station.name = name
+        db.session.commit()
+        flash('Station updated.')
+    return redirect(url_for('admin.kitchen_manage_stations'))
 
 @admin_bp.route('/kitchen/stations/delete/<int:station_id>', methods=['POST'])
 @login_required

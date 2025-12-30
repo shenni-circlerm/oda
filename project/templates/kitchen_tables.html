@@ -176,3 +176,14 @@
     </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh page every 15 seconds to show latest table status
+    setTimeout(function() {
+        if (!document.querySelector('.modal.show')) {
+            window.location.reload();
+        }
+    }, 15000);
+</script>
+{% endblock %}

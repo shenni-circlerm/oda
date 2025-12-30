@@ -146,6 +146,8 @@
                        class="btn btn-xs btn-outline-secondary rounded-pill {% if date_filter == 'yesterday' %}active{% endif %}">Yesterday</a>
                     <a href="{{ url_for('admin.storefront_orders', payment_filter=payment_filter, date_filter='week') }}" 
                        class="btn btn-xs btn-outline-secondary rounded-pill {% if date_filter == 'week' %}active{% endif %}">This Week</a>
+                    <!-- <a href="{{ url_for('admin.storefront_orders', payment_filter=payment_filter, date_filter='all') }}" 
+                       class="btn btn-xs btn-outline-secondary rounded-pill {% if date_filter == 'all' %}active{% endif %}">All</a> -->
                 </div>
                 <!-- Payment Filter -->
                 <div class="d-flex gap-1 overflow-auto pb-1">
@@ -576,6 +578,14 @@
                 filterItems();
             });
         });
+
+        // Auto-refresh page every 15 seconds to show latest order status from kitchen
+        setTimeout(function() {
+            // Only reload if no modal is currently open (to prevent interrupting user input)
+            if (!document.querySelector('.modal.show')) {
+                window.location.reload();
+            }
+        }, 15000);
 
     });
 </script>

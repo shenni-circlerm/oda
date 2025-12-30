@@ -34,12 +34,14 @@
                         </div>
                         
                         <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-light btn-sm rounded-pill px-3 fw-medium">Settings</button>
-                            <form action="{{ url_for('admin.kitchen_delete_station', station_id=station.id) }}" method="POST" onsubmit="return confirm('Delete this station?');">
-                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
+                            <button class="btn btn-light btn-sm rounded-pill px-3 fw-medium" 
+                                    onclick="openEditStationModal('{{ station.id }}', '{{ station.name|replace("'", "\\'") }}', '{{ url_for('admin.kitchen_edit_station', station_id=station.id) }}')">
+                                Settings
+                            </button>
+                            <button class="btn text-danger btn-sm rounded-circle d-flex align-items-center justify-content-center border-0 bg-transparent" style="width: 34px; height: 34px;"
+                                    onclick="openDeleteStationModal('{{ url_for('admin.kitchen_delete_station', station_id=station.id) }}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
                     </div>
                     {% else %}
@@ -94,4 +96,64 @@
         </div>
     </div>
 </div>
+
+<!-- Edit Station Modal -->
+<div class="modal fade" id="editStationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold">Edit Station</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editStationForm" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-1">
+                        <label class="form-label smallest fw-bold text-uppercase text-muted tracking-wider">Station Name</label>
+                        <input type="text" name="name" id="editStationName" class="form-control form-control-lg bg-light border-0 py-3" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Station Modal -->
+<div class="modal fade" id="deleteStationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold">Delete Station</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="text-muted small mb-0">Are you sure you want to delete this station? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <form id="deleteStationForm" method="POST" class="w-100">
+                    <button type="submit" class="btn btn-danger w-100 py-3 rounded-pill fw-bold shadow-sm">Confirm Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditStationModal(id, name, url) {
+        const form = document.getElementById('editStationForm');
+        document.getElementById('editStationName').value = name;
+        form.action = url;
+        
+        new bootstrap.Modal(document.getElementById('editStationModal')).show();
+    }
+
+    function openDeleteStationModal(url) {
+        document.getElementById('deleteStationForm').action = url;
+        new bootstrap.Modal(document.getElementById('deleteStationModal')).show();
+    }
+</script>
 {% endblock %}

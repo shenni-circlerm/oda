@@ -39,7 +39,7 @@ def analytics_dashboard():
     seven_days_ago = datetime.utcnow().date() - timedelta(days=7)
     daily_revenue_query = db.session.query(
         func.date(Order.created_at).label('date'),
-        func.sum(MenuItem.price * OrderItem.quantity).label('daily_total')
+        func.sum(MenuItem.price * OrderItem.quantity).label('revenue')
     ).select_from(Order).join(OrderItem).join(MenuItem).filter(
         Order.restaurant_id == current_user.restaurant_id,
         Order.status.in_(['paid', 'completed']),
