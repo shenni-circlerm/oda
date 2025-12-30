@@ -261,11 +261,19 @@
                         {% endfor %}
                     </div>
                     <div class="card-footer bg-light p-4 border-0">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Subtotal</span>
+                            <span class="fw-bold">${{ "%.2f"|format(selected_order.subtotal) }}</span>
+                        </div>
+                        {% if selected_order.tax_amount > 0 %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Tax ({{ "%.2f"|format((current_user.restaurant.tax_rate or 0) * 100) }}%)</span>
+                            <span class="fw-bold">${{ "%.2f"|format(selected_order.tax_amount) }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                             <span class="h5 mb-0 fw-bold">Total</span>
-                            {% set total = namespace(value=0) %}
-                            {% for item in selected_order.items %}{% set total.value = total.value + (item.menu_item.price * item.quantity) %}{% endfor %}
-                            <span class="h3 mb-0 fw-bold text-primary">${{ "%.2f"|format(total.value) }}</span>
+                            <span class="h3 mb-0 fw-bold text-primary">${{ "%.2f"|format(selected_order.total_price) }}</span>
                         </div>
                     </div>
                 </div>
@@ -317,10 +325,10 @@
                         {% endfor %}
                     </div>
                     
-                    {% set subtotal = selected_order.total_price %}
+                    {% set subtotal = selected_order.subtotal %}
+                    {% set tax_amount = selected_order.tax_amount %}
+                    {% set grand_total = selected_order.total_price %}
                     {% set tax_rate = current_user.restaurant.tax_rate or 0.0 %}
-                    {% set tax_amount = subtotal * tax_rate %}
-                    {% set grand_total = subtotal + tax_amount %}
 
                     <div style="font-size: 0.9rem; margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-between;">

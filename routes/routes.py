@@ -1487,9 +1487,15 @@ def storefront_orders():
                 'preparing': sum(1 for item in order.items if item.status == 'preparing'),
                 'ready': sum(1 for item in order.items if item.status == 'ready')
             }
-            order.total_price = sum(item.menu_item.price * item.quantity for item in order.items)
+            subtotal = sum(item.menu_item.price * item.quantity for item in order.items)
+            tax_rate = restaurant.tax_rate or 0.0
+            order.subtotal = subtotal
+            order.tax_amount = subtotal * tax_rate
+            order.total_price = subtotal + order.tax_amount
         else:
             order.item_counts = None
+            order.subtotal = 0
+            order.tax_amount = 0
             order.total_price = 0
 
     menu_items = MenuItem.query.filter_by(restaurant_id=restaurant.id, is_available=True).all()
@@ -1539,5 +1545,7 @@ def storefront_payment(order_id):
             flash(f'Order #{order.id} for {target} marked as paid.')
             return redirect(url_for('admin.storefront_orders'))
 
-    total = sum(item.menu_item.price * item.quantity for item in order.items)
+    subtotal = sum(item.menu_item.price * item.quantity for item in order.items)
+    tax_rate = current_user.restaurant.tax_rate or 0.0
+    total = subtotal * (1 + tax_rate)
     return render_template('storefront_payment.html', order=order, total=total)

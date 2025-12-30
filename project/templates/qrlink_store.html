@@ -88,6 +88,29 @@
         align-items: center;
         justify-content: center;
     }
+
+    /* Quantity Control Styling */
+    .qty-control {
+        background: #f8f9fa;
+        border-radius: 50px;
+        padding: 4px 8px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .qty-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
 </style>
 {% endblock %}
 
@@ -110,7 +133,7 @@
                 <div class="row g-3">
                     {% for item in category.items if item.is_available %}
                     <div class="col-12 col-md-6">
-                        <div class="card menu-item-card p-3 shadow-sm h-100" onclick="addToCart('{{ item.id }}', '{{ item.name }}', {{ item.price }})">
+                        <div class="card menu-item-card p-3 shadow-sm h-100" onclick="openItemModal('{{ item.id }}', '{{ item.name|replace("'", "\\'") }}', {{ item.price }}, '{{ item.description|replace("'", "\\'")|replace("\n", " ") }}')">
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1 pe-3">
                                     <h6 class="fw-bold mb-1">{{ item.name }}</h6>
@@ -148,20 +171,89 @@
     <span class="badge bg-white text-dark rounded-pill" id="cart-count">0</span>
 </a>
 {% endblock %}
-
+{% block body_end %}
+<!-- Item Detail Modal -->
+<div class="modal fade" id="itemDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="modalItemName">Item Name</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted" id="modalItemDescription"></p>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Special Requests</label>
+                    <textarea id="modalItemNotes" class="form-control" rows="2" placeholder="e.g. No onions, extra spicy"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 d-flex justify-content-between align-items-center">
+                <div class="qty-control shadow-sm">
+                    <button class="qty-btn" onclick="updateModalQuantity(-1)"><i class="bi bi-dash"></i></button>
+                    <span class="fw-bold small" id="modalItemQuantity">1</span>
+                    <button class="qty-btn" onclick="updateModalQuantity(1)"><i class="bi bi-plus"></i></button>
+                </div>
+                <button type="button" id="modalAddToCartBtn" class="btn btn-primary rounded-pill px-4 fw-bold">Add to Order</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 {% block scripts %}
 <script>
-    // Logic remains identical to yours but ensures UI updates correctly
-    function getCart() { return JSON.parse(localStorage.getItem('cart') || '{}'); }
+    let currentModalItem = {};
+    const itemDetailModal = new bootstrap.Modal(document.getElementById('itemDetailModal'));
+
+    function getCart() {
+        const cartData = localStorage.getItem('cart');
+        try {
+            const cart = JSON.parse(cartData || '[]');
+            // Ensure the cart is always an array to prevent errors from old data formats.
+            if (Array.isArray(cart)) {
+                return cart;
+            }
+            return []; // Return empty array if cart is not an array (e.g., old object format)
+        } catch (e) {
+            return []; // Return empty array if JSON is invalid
+        }
+    }
     
     function saveCart(cart) {
         localStorage.setItem('cart', JSON.stringify(cart));
         updateCartUI();
     }
 
-    function addToCart(id, name, price) {
-        const cart = getCart();
-        cart[id] = cart[id] ? { ...cart[id], quantity: cart[id].quantity + 1 } : { id, name, price, quantity: 1 };
+    function openItemModal(id, name, price, description) {
+        currentModalItem = { id, name, price };
+        document.getElementById('modalItemName').textContent = name;
+        document.getElementById('modalItemDescription').textContent = description;
+        document.getElementById('modalItemNotes').value = '';
+        document.getElementById('modalItemQuantity').textContent = 1;
+        
+        const addToCartBtn = document.getElementById('modalAddToCartBtn');
+        addToCartBtn.onclick = function() {
+            const quantity = parseInt(document.getElementById('modalItemQuantity').textContent);
+            const notes = document.getElementById('modalItemNotes').value.trim();
+            addToCart(currentModalItem.id, currentModalItem.name, currentModalItem.price, quantity, notes);
+            itemDetailModal.hide();
+        };
+        
+        itemDetailModal.show();
+    }
+
+    function updateModalQuantity(change) {
+        const qtyEl = document.getElementById('modalItemQuantity');
+        let currentQty = parseInt(qtyEl.textContent);
+        currentQty = Math.max(1, currentQty + change);
+        qtyEl.textContent = currentQty;
+    }
+
+    function addToCart(id, name, price, quantity, notes) {
+        let cart = getCart();
+        // For simplicity, we'll create a unique entry for items with notes, even if the ID is the same.
+        // A more complex implementation could merge quantities if notes are identical.
+        const cartId = id + '-' + Date.now(); // Simple unique ID for each addition
+        cart.push({ cartId, id, name, price, quantity, notes });
         saveCart(cart);
         
         // Simple haptic feedback/visual cue
@@ -174,7 +266,7 @@
         const cart = getCart();
         const countEl = document.getElementById('cart-count');
         const cartButton = document.getElementById('cart-button');
-        let itemCount = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
+        let itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
         
         countEl.textContent = itemCount;
         cartButton.classList.toggle('d-none', itemCount === 0);

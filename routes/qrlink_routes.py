@@ -78,7 +78,12 @@ def place_order():
     db.session.flush() # Flush to get the new_order.id
 
     for item_data in data['items']:
-        order_item = OrderItem(order_id=new_order.id, menu_item_id=item_data['menu_item_id'], quantity=item_data['quantity'])
+        order_item = OrderItem(
+            order_id=new_order.id, 
+            menu_item_id=item_data['menu_item_id'], 
+            quantity=item_data['quantity'],
+            notes=item_data.get('notes')
+        )
         db.session.add(order_item)
 
     db.session.commit()

@@ -112,6 +112,10 @@
                     <span>Subtotal</span>
                     <span id="subtotal-amount">$0.00</span>
                 </div>
+                <div class="d-flex justify-content-between text-muted mb-2 d-none" id="tax-row">
+                    <span>Tax <span id="tax-rate"></span></span>
+                    <span id="tax-amount">$0.00</span>
+                </div>
                 <div class="d-flex justify-content-between fw-bold fs-5">
                     <span>Total</span>
                     <span class="price-subtotal" id="cart-total">$0.00</span>
@@ -135,8 +139,20 @@
     const tableId = "{{ table.id if table else '' }}";
     const restaurantId = "{{ restaurant.id }}";
     const orderType = new URLSearchParams(window.location.search).get('type');
-
-    function getCart() { return JSON.parse(localStorage.getItem('cart') || '{}'); }
+    const taxRate = {{ restaurant.tax_rate or 0.0 }};
+    function getCart() {
+        const cartData = localStorage.getItem('cart');
+        try {
+            const cart = JSON.parse(cartData || '[]');
+            // Ensure the cart is always an array to prevent errors from old data formats.
+            if (Array.isArray(cart)) {
+                return cart;
+            }
+            return []; // Return empty array if cart is not an array (e.g., old object format)
+        } catch (e) {
+            return []; // Return empty array if JSON is invalid
+        }
+    }
 
     function saveCart(cart) {
         localStorage.setItem('cart', JSON.stringify(cart));
@@ -144,10 +160,13 @@
     }
 
     function updateQuantity(id, change) {
-        const cart = getCart();
-        if (cart[id]) {
-            cart[id].quantity += change;
-            if (cart[id].quantity <= 0) delete cart[id];
+        let cart = getCart();
+        const itemIndex = cart.findIndex(item => item.cartId === id);
+        if (itemIndex > -1) {
+            cart[itemIndex].quantity += change;
+            if (cart[itemIndex].quantity <= 0) {
+                cart.splice(itemIndex, 1);
+            }
             saveCart(cart);
         }
     }
@@ -155,15 +174,15 @@
     function renderCart() {
         const cart = getCart();
         const container = document.getElementById('cart-items-container');
-        const totalEl = document.getElementById('cart-total');
+        const grandTotalEl = document.getElementById('cart-total');
         const footerTotal = document.getElementById('footer-total');
         const subtotalEl = document.getElementById('subtotal-amount');
         const checkoutButton = document.getElementById('checkout-button');
         
         container.innerHTML = '';
-        let total = 0;
+        let subtotal = 0;
 
-        if (Object.keys(cart).length === 0) {
+        if (cart.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-5">
                     <i class="bi bi-basket2 text-muted" style="font-size: 3rem;"></i>
@@ -173,47 +192,66 @@
             checkoutButton.disabled = true;
         } else {
             checkoutButton.disabled = false;
-            for (const id in cart) {
-                const item = cart[id];
-                total += item.price * item.quantity;
+            cart.forEach(item => {
+                subtotal += item.price * item.quantity;
                 container.innerHTML += `
                     <div class="d-flex justify-content-between align-items-center order-item">
                         <div>
                             <h6 class="fw-bold mb-1">${item.name}</h6>
+                            ${item.notes ? `<p class="small text-danger mb-1 fst-italic">Note: ${item.notes}</p>` : ''}
                             <span class="text-muted small">$${item.price.toFixed(2)}</span>
                         </div>
                         <div class="qty-control shadow-sm">
-                            <button class="qty-btn" onclick="updateQuantity('${id}', -1)"><i class="bi bi-dash"></i></button>
+                            <button class="qty-btn" onclick="updateQuantity('${item.cartId}', -1)"><i class="bi bi-dash"></i></button>
                             <span class="fw-bold small">${item.quantity}</span>
-                            <button class="qty-btn" onclick="updateQuantity('${id}', 1)"><i class="bi bi-plus"></i></button>
+                            <button class="qty-btn" onclick="updateQuantity('${item.cartId}', 1)"><i class="bi bi-plus"></i></button>
                         </div>
                     </div>
                 `;
-            }
+            });
         }
-        const formattedTotal = `$${total.toFixed(2)}`;
-        totalEl.textContent = formattedTotal;
+
+        const taxAmount = subtotal * taxRate;
+        const grandTotal = subtotal + taxAmount;
+
+        subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
+        
+        // Add tax row if applicable
+        if (taxRate > 0) {
+            document.getElementById('tax-row').classList.remove('d-none');
+            document.getElementById('tax-rate').textContent = `(${(taxRate * 100).toFixed(2)}%)`;
+            document.getElementById('tax-amount').textContent = `$${taxAmount.toFixed(2)}`;
+        } else {
+            document.getElementById('tax-row').classList.add('d-none');
+        }
+
+        const formattedTotal = `$${grandTotal.toFixed(2)}`;
+        grandTotalEl.textContent = formattedTotal;
         footerTotal.textContent = formattedTotal;
-        subtotalEl.textContent = formattedTotal;
     }
 
     function submitOrder() {
-        const cart = getCart();
-        if (Object.keys(cart).length === 0) return;
+        let cart = getCart();
+        if (cart.length === 0) return;
 
         // Visual feedback on click
         const btn = document.getElementById('checkout-button');
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
         btn.disabled = true;
 
-        const itemsForServer = Object.values(cart).map(item => ({ menu_item_id: item.id, quantity: item.quantity }));
+        const itemsForServer = cart.map(item => ({ menu_item_id: item.id, quantity: item.quantity, notes: item.notes }));
 
         fetch("{{ url_for('qrlink.place_order') }}", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ table_id: tableId, restaurant_id: restaurantId, order_type: orderType, items: itemsForServer })
         })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                return res.text().then(text => { throw new Error(text || `Server error: ${res.status}`) });
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.success) {
                 localStorage.removeItem('cart');
@@ -223,6 +261,11 @@
                 btn.innerHTML = 'Place Order • ' + document.getElementById('cart-total').textContent;
                 btn.disabled = false;
             }
+        }).catch(error => {
+            console.error('Order submission failed:', error);
+            alert('An error occurred while placing your order. Please check the console for details.');
+            btn.innerHTML = 'Place Order • ' + document.getElementById('cart-total').textContent;
+            btn.disabled = false;
         });
     }
 
