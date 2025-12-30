@@ -1293,6 +1293,16 @@ def storefront_orders():
                     flash(f'Order #{source_order.id} merged into Order #{target_order.id}.')
                     return redirect(url_for('admin.storefront_orders', order_id=target_order.id))
         
+        elif action == 'cancel_order':
+            if order_id:
+                order = Order.query.get(order_id)
+                if order and order.restaurant_id == restaurant.id:
+                    order.status = 'cancelled'
+                    db.session.commit()
+                    flash(f'Order #{order.id} has been cancelled.')
+                    # Redirect to the main list, as the selected order is no longer active
+                    return redirect(url_for('admin.storefront_orders'))
+
         elif action == 'add_multiple_items':
             if order_id:
                 items_added_count = 0
