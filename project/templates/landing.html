@@ -15,6 +15,7 @@
 {% endblock %}
 
 {% block content %}
+{% set show_login = request.args.get('show_login') == 'true' %}
 <div class="container-fluid landing-hero">
     <div class="container">
         <div class="row align-items-center">
@@ -41,15 +42,15 @@
                     <div class="card-body">
                         <ul class="nav nav-tabs nav-fill mb-4" id="authTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Get Started</button>
+                                <button class="nav-link {% if not show_login %}active{% endif %}" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Get Started</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
+                                <button class="nav-link {% if show_login %}active{% endif %}" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
                             </li>
                         </ul>
                         
                         <div class="tab-content" id="authTabsContent">
-                            <div class="tab-pane fade show active" id="signup" role="tabpanel">
+                            <div class="tab-pane fade {% if not show_login %}show active{% endif %}" id="signup" role="tabpanel">
                                 <form action="{{ url_for('auth.register') }}" method="POST">
                                     <div class="mb-3">
                                         <label class="form-label small fw-bold text-uppercase text-muted">Restaurant Name</label>
@@ -67,7 +68,7 @@
                                 </form>
                             </div>
                             
-                            <div class="tab-pane fade" id="login" role="tabpanel">
+                            <div class="tab-pane fade {% if show_login %}show active{% endif %}" id="login" role="tabpanel">
                                 <form action="{{ url_for('auth.login') }}" method="POST">
                                     <div class="mb-3">
                                         <label class="form-label small fw-bold text-uppercase text-muted">Email Address</label>

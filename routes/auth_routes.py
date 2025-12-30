@@ -33,7 +33,7 @@ def login():
             return redirect(url_for('admin.landing'))
         
         flash('Please check your login details and try again.')
-        return redirect(url_for('admin.landing'))
+        return redirect(url_for('admin.landing', show_login='true'))
     return redirect(url_for('admin.landing'))
     
 @auth_bp.route('/logout')
@@ -192,7 +192,7 @@ def forgot_password():
                 token=token
             )
             flash('A password reset link has been sent to your email.')
-            return redirect(url_for('admin.landing'))
+            return redirect(url_for('admin.landing', show_login='true'))
         else:
             flash('Email address not found.')
     return render_template('forgot_password.html')

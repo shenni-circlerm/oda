@@ -81,7 +81,7 @@
             <h2 class="fw-bold mb-1">Floor Plan</h2>
             <p class="text-muted mb-0">Live status and occupancy of dining tables</p>
         </div>
-        <div class="d-flex gap-2">
+        <!-- <div class="d-flex gap-2">
             <div class="btn-group bg-white p-1 shadow-sm rounded-pill border">
                 <button class="btn btn-sm btn-primary rounded-pill px-4" id="view-grid">Grid</button>
                 <button class="btn btn-sm btn-light rounded-pill px-4" id="view-list">List</button>
@@ -89,41 +89,48 @@
             <button class="btn btn-dark rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#addTableModal">
                 <i class="bi bi-plus-lg me-2"></i>Add Table
             </button>
-        </div>
+        </div> -->
     </div>
 
     <div class="table-grid" id="table-container">
         {% for table in tables %}
-        <div class="table-card p-4 shadow-sm status-{{ table.status if table.status else 'available' }}">
+        <div class="table-card p-4 shadow-sm status-{{ 'occupied' if table.active_order else 'available' }}" onclick="openTableDetail('{{ table.number }}', '{{ table.seating_capacity or 4 }}', '{{ (table.notes or '')|replace("'", "\\'") }}', {{ table.serialized_items|tojson|forceescape }})">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <div class="status-badge-container">
-                        <span class="status-indicator bg-{{ 'occupied' if table.is_occupied else 'available' }}"></span>
+                        <span class="status-indicator bg-{{ 'occupied' if table.active_order else 'available' }}"></span>
                         <span class="smallest fw-bold text-uppercase tracking-wider text-muted">
-                            {{ 'Occupied' if table.is_occupied else 'Available' }}
+                            {{ 'Occupied' if table.active_order else 'Available' }}
                         </span>
                     </div>
                     <div class="table-number fw-bold">#{{ table.number }}</div>
                 </div>
                 <span class="capacity-tag">
-                    <i class="bi bi-people-fill me-1"></i> {{ table.capacity if table.capacity else '4' }}
+                    <i class="bi bi-people-fill me-1"></i> {{ table.seating_capacity if table.seating_capacity else '4' }}
                 </span>
             </div>
 
-            {% if table.is_occupied %}
+            {% if table.active_order %}
             <div class="order-preview">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="smallest text-muted fw-bold">ACTIVE ORDER</span>
-                    <span class="badge bg-soft-primary text-primary rounded-pill small">$42.50</span>
+                    <span class="badge bg-light text-dark rounded-pill small">#{{ (table.active_order.id|string)[-4:] }}</span>
                 </div>
+                {% set ready_count = table.active_order.items|selectattr('status', 'equalto', 'ready')|list|length %}
+                {% set total_count = table.active_order.items|length %}
+                {% set percent = (ready_count / total_count * 100) if total_count > 0 else 0 %}
                 <div class="progress" style="height: 6px; border-radius: 10px;">
-                    <div class="progress-bar bg-primary" role="progressbar" style="width: 65%"></div>
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ percent }}%"></div>
                 </div>
+                <div class="mt-2 smallest text-muted">{{ ready_count }}/{{ total_count }} Items Ready</div>
+                <button class="btn btn-sm btn-light w-100 rounded-pill mt-3 fw-bold text-primary" style="background-color: #f0f9ff;" onclick="event.stopPropagation(); openTableDetail('{{ table.number }}', '{{ table.seating_capacity or 4 }}', '{{ (table.notes or '')|replace("'", "\\'") }}', {{ table.serialized_items|tojson|forceescape }})">
+                    View Details
+                </button>
             </div>
             {% else %}
             <div class="mt-4">
-                <button class="btn btn-outline-light text-dark border-0 w-100 rounded-pill btn-sm py-2 fw-medium" style="background-color: #f8fafc;">
-                    View Details
+                <button class="btn btn-outline-light text-dark border-0 w-100 rounded-pill btn-sm py-2 fw-medium" style="background-color: #f8fafc;" onclick="event.stopPropagation(); openTableDetail('{{ table.number }}', '{{ table.seating_capacity or 4 }}', '{{ (table.notes or '')|replace("'", "\\'") }}', [])">
+                    Table Details
                 </button>
             </div>
             {% endif %}
@@ -144,7 +151,7 @@
 </div>
 
 <!-- Simple Add Table Modal -->
-<div class="modal fade" id="addTableModal" tabindex="-1">
+<!-- <div class="modal fade" id="addTableModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
             <div class="modal-header border-0 pb-0 px-4 pt-4">
@@ -174,6 +181,43 @@
             </form>
         </div>
     </div>
+</div> -->
+
+<!-- Table Detail Modal -->
+<div class="modal fade" id="tableDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-lg);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <div>
+                    <h5 class="modal-title fw-bold mb-0">Table <span id="detailTableNumber"></span></h5>
+                    <span class="text-muted small"><i class="bi bi-people-fill me-1"></i> <span id="detailTableCapacity"></span> Seats</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Notes Section -->
+                <div id="detailTableNotesContainer" class="mb-4 d-none">
+                    <label class="smallest fw-bold text-uppercase text-muted mb-1">Notes</label>
+                    <div class="p-3 bg-light rounded-3 text-dark small" id="detailTableNotes"></div>
+                </div>
+
+                <!-- Order Section -->
+                <div>
+                    <label class="smallest fw-bold text-uppercase text-muted mb-2">Current Order</label>
+                    <div id="detailOrderList" class="d-flex flex-column gap-2">
+                        <!-- Items injected via JS -->
+                    </div>
+                    <div id="detailEmptyState" class="text-center py-4 text-muted d-none">
+                        <i class="bi bi-basket3 fs-1 opacity-25"></i>
+                        <p class="small mt-2">No active order at this table.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light w-100 py-3 rounded-pill fw-bold" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -185,5 +229,46 @@
             window.location.reload();
         }
     }, 15000);
+
+    function openTableDetail(number, capacity, notes, items) {
+        document.getElementById('detailTableNumber').textContent = number;
+        document.getElementById('detailTableCapacity').textContent = capacity;
+        
+        // Handle Notes
+        const notesContainer = document.getElementById('detailTableNotesContainer');
+        if (notes && notes !== 'None') {
+            document.getElementById('detailTableNotes').textContent = notes;
+            notesContainer.classList.remove('d-none');
+        } else {
+            notesContainer.classList.add('d-none');
+        }
+
+        // Handle Order Items
+        const listContainer = document.getElementById('detailOrderList');
+        const emptyState = document.getElementById('detailEmptyState');
+        listContainer.innerHTML = '';
+
+        if (items && items.length > 0) {
+            emptyState.classList.add('d-none');
+            items.forEach(item => {
+                // Determine status color
+                let badgeClass = 'bg-secondary';
+                if (item.status === 'preparing') badgeClass = 'bg-primary';
+                if (item.status === 'ready') badgeClass = 'bg-success';
+
+                const html = `
+                    <div class="d-flex justify-content-between align-items-center p-3 border rounded-3">
+                        <div class="fw-bold">${item.quantity}x ${item.menu_item.name}</div>
+                        <span class="badge ${badgeClass} rounded-pill text-uppercase" style="font-size: 0.7rem;">${item.status}</span>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', html);
+            });
+        } else {
+            emptyState.classList.remove('d-none');
+        }
+
+        new bootstrap.Modal(document.getElementById('tableDetailModal')).show();
+    }
 </script>
 {% endblock %}

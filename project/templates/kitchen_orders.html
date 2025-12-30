@@ -58,6 +58,7 @@
     
     .status-pending { border-left-color: #fbbf24; }
     .status-preparing { border-left-color: #0d6efd; background: #eff6ff; }
+    .status-ready { border-left-color: #198754; background: #f0fdf4; opacity: 0.8; }
     
     .timer { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.8rem; }
 
@@ -138,6 +139,7 @@
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
                                 {% if item.status == 'preparing' %}<span class="badge bg-primary rounded-pill">Cooking</span>{% endif %}
+                                {% if item.status == 'ready' %}<span class="badge bg-success rounded-pill">Ready</span>{% endif %}
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button class="btn btn-link btn-sm p-0 text-muted" onclick="printTicket('{{ item.menu_item.name|replace("'", "\\'") }}', '{{ item.quantity }}', '{{ item.order.table.number }}', '{{ (item.notes or '')|replace("'", "\\'") }}')">
@@ -148,6 +150,11 @@
                         </div>
                         <h5 class="fw-bold mb-1">{{ item.quantity }}x {{ item.menu_item.name }}</h5>
                         <div class="d-flex gap-2 mt-2">
+                            {% if item.status == 'ready' %}
+                            <button class="btn btn-sm btn-outline-success flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'served', this)">
+                                <i class="bi bi-check-all"></i> Clear
+                            </button>
+                            {% else %}
                             {% if item.status == 'pending' %}
                             <button class="btn btn-sm btn-outline-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'preparing', this)">
                                 <i class="bi bi-fire"></i> Cook
@@ -156,6 +163,7 @@
                             <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'complete', this)">
                                 <i class="bi bi-check2"></i> Done
                             </button>
+                            {% endif %}
                         </div>
                     </div>
                     {% else %}
@@ -185,6 +193,7 @@
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
                                 {% if item.status == 'preparing' %}<span class="badge bg-primary rounded-pill">Cooking</span>{% endif %}
+                                {% if item.status == 'ready' %}<span class="badge bg-success rounded-pill">Ready</span>{% endif %}
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button class="btn btn-link btn-sm p-0 text-muted" onclick="printTicket('{{ item.menu_item.name|replace("'", "\\'") }}', '{{ item.quantity }}', '{{ item.order.table.number }}', '{{ (item.notes or '')|replace("'", "\\'") }}')">
@@ -195,6 +204,11 @@
                         </div>
                         <h5 class="fw-bold mb-1">{{ item.quantity }}x {{ item.menu_item.name }}</h5>
                         <div class="d-flex gap-2 mt-2">
+                            {% if item.status == 'ready' %}
+                            <button class="btn btn-sm btn-outline-success flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'served', this)">
+                                <i class="bi bi-check-all"></i> Clear
+                            </button>
+                            {% else %}
                             {% if item.status == 'pending' %}
                             <button class="btn btn-sm btn-outline-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'preparing', this)">
                                 <i class="bi bi-fire"></i> Cook
@@ -203,6 +217,7 @@
                             <button class="btn btn-sm btn-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'complete', this)">
                                 <i class="bi bi-check2"></i> Done
                             </button>
+                            {% endif %}
                         </div>
                     </div>
                     {% else %}
@@ -243,6 +258,9 @@ function updateElapsedTimes() {
 document.addEventListener('DOMContentLoaded', function() {
     updateElapsedTimes();
     setInterval(updateElapsedTimes, 1000);
+    
+    // Initial sort of all stations
+    document.querySelectorAll('.station-body').forEach(sortStation);
 
     // 1. Auto-refresh page every 15 seconds to check for new orders
     setTimeout(function() {
@@ -325,11 +343,32 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {'Content-Type': 'application/json'}
         }).then(res => {
             if (res.ok) {
-                if (status === 'complete') {
+                if (status === 'served') {
+                    // Remove card when cleared
                     card.style.transition = 'all 0.3s ease';
                     card.style.opacity = '0';
                     card.style.transform = 'scale(0.9)';
                     setTimeout(() => card.remove(), 300);
+                } else if (status === 'complete') {
+                    // Move to bottom and mark as ready
+                    card.classList.remove('status-preparing', 'status-pending');
+                    card.classList.add('status-ready');
+                    
+                    // Update button to "Clear"
+                    btn.parentElement.innerHTML = `
+                        <button class="btn btn-sm btn-outline-success flex-grow-1 rounded-pill" onclick="updateItemStatus('${itemId}', 'served', this)">
+                            <i class="bi bi-check-all"></i> Clear
+                        </button>
+                    `;
+
+                    // Add badge
+                    const headerGroup = card.querySelector('.d-flex.align-items-center.gap-2');
+                    if(headerGroup && !headerGroup.querySelector('.bg-success')) {
+                        headerGroup.insertAdjacentHTML('beforeend', '<span class="badge bg-success rounded-pill">Ready</span>');
+                    }
+                    
+                    // Sort station to move this item to bottom
+                    sortStation(card.parentElement);
                 } else if (status === 'preparing') {
                     card.classList.remove('status-pending');
                     card.classList.add('status-preparing');
@@ -355,16 +394,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // 4. Drag and Drop Logic (Kanban)
     const draggables = document.querySelectorAll('.item-ticket');
     const containers = document.querySelectorAll('.station-body');
+    let originalDragContainer = null; // Variable to store the source column
 
     draggables.forEach(draggable => {
         draggable.addEventListener('dragstart', () => {
             draggable.classList.add('dragging');
             draggable.style.opacity = '0.5';
+            originalDragContainer = draggable.closest('.station-body');
         });
 
         draggable.addEventListener('dragend', () => {
             draggable.classList.remove('dragging');
             draggable.style.opacity = '1';
+            originalDragContainer = null; // Reset after drag operation
         });
     });
 
@@ -387,6 +429,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const draggable = document.querySelector('.dragging');
             if (!draggable) return;
             
+            // After drop, ensure placeholders are correct in both source and destination.
+            // The draggable is already in the new container due to the 'dragover' event.
+            ensurePlaceholderState(container);
+            if (originalDragContainer && originalDragContainer !== container) {
+                ensurePlaceholderState(originalDragContainer);
+            }
+
             const stationCol = container.closest('.station-col');
             const newStationId = stationCol.dataset.stationId;
             const menuItemId = draggable.dataset.menuItemId;
@@ -402,11 +451,43 @@ document.addEventListener('DOMContentLoaded', function() {
             }).then(res => {
                 if(res.ok) {
                     // Visual feedback is already handled by the drop
+                    sortStation(container);
                     // The auto-refresh will eventually sync other items of the same type
                 }
             });
         });
     });
+
+    // Helper to manage the "Clear" placeholder in empty stations
+    function ensurePlaceholderState(container) {
+        if (!container) return;
+        const placeholder = container.querySelector('.empty-station-placeholder');
+        const hasItems = container.querySelector('.item-ticket');
+
+        if (hasItems && placeholder) {
+            placeholder.remove();
+        } else if (!hasItems && !placeholder) {
+            const newPlaceholder = document.createElement('div');
+            newPlaceholder.className = 'empty-station-placeholder';
+            newPlaceholder.innerHTML = `
+                <i class="bi bi-check2-circle mb-2 d-block fs-4 text-muted"></i>
+                <span class="smallest fw-bold text-muted text-uppercase">Clear</span>
+            `;
+            container.appendChild(newPlaceholder);
+        }
+    }
+
+    // Helper to keep Ready items at the bottom
+    function sortStation(container) {
+        const items = [...container.querySelectorAll('.item-ticket')];
+        items.sort((a, b) => {
+            const aReady = a.classList.contains('status-ready');
+            const bReady = b.classList.contains('status-ready');
+            if (aReady === bReady) return 0;
+            return aReady ? 1 : -1; // Ready items go to bottom
+        });
+        items.forEach(item => container.appendChild(item));
+    }
 
     function getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.item-ticket:not(.dragging)')];

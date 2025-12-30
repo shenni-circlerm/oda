@@ -4,6 +4,7 @@ from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import os
+import re
 from io import BytesIO
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import selectinload
@@ -47,8 +48,8 @@ def kitchen_orders():
     # Get all active order items that are not ready
     active_items = db.session.query(OrderItem).join(Order).filter(
         Order.restaurant_id == current_user.restaurant_id,
-        Order.status.in_(['pending', 'preparing']),
-        OrderItem.status != 'ready'
+        Order.status.in_(['pending', 'preparing', 'ready']),
+        OrderItem.status.in_(['pending', 'preparing', 'ready'])
     ).order_by(OrderItem.created_at).all()
 
     # Group items by station
@@ -373,7 +374,7 @@ def kitchen_update_item_status(item_id, status):
     # Map 'complete' from frontend to 'ready' for database
     db_status = 'ready' if status == 'complete' else status
     
-    if db_status in ['preparing', 'ready']:
+    if db_status in ['preparing', 'ready', 'served']:
         item.status = db_status
         db.session.commit()
         print(f"DEBUG: Item {item_id} updated to {db_status}")
@@ -464,36 +465,31 @@ def serve_restaurant_image(restaurant_id, image_type):
 @login_required
 def kitchen_tables():
     tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
+    tables.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', x.number)])
 
     active_orders = Order.query.filter_by(
         restaurant_id=current_user.restaurant_id
     ).filter(
         Order.status.in_(['pending', 'preparing', 'ready'])
     ).options(
-        selectinload(Order.items)
+        selectinload(Order.items).selectinload(OrderItem.menu_item)
     ).all()
 
-    table_status = {}
     for table in tables:
-        order = next((o for o in active_orders if o.table_id == table.id), None)
-        if order:
-            total_items = len(order.items)
-            item_counts = {
-                'total': total_items,
-                'pending': sum(1 for item in order.items if item.status == 'pending'),
-                'preparing': sum(1 for item in order.items if item.status == 'preparing'),
-                'ready': sum(1 for item in order.items if item.status == 'ready')
-            } if total_items > 0 else None
-            table_status[table.id] = {
-                'status': order.status,
-                'created_at': order.created_at.isoformat() + "Z", # ISO format for JS
-                'item_counts': item_counts
-            }
+        # Attach active order directly to table for easy access in template
+        table.active_order = next((o for o in active_orders if o.table_id == table.id), None)
+        
+        # Create serializable items list for the frontend JSON
+        if table.active_order:
+            table.serialized_items = [{
+                'quantity': item.quantity,
+                'menu_item': {'name': item.menu_item.name},
+                'status': item.status
+            } for item in table.active_order.items]
         else:
-            table_status[table.id] = { 'status': 'available', 'created_at': None, 'item_counts': None }
+            table.serialized_items = []
 
-    return render_template('kitchen_tables.html', tables=tables, table_status=table_status)
+    return render_template('kitchen_tables.html', tables=tables)
 
 @admin_bp.route('/kitchen/stations', methods=['GET', 'POST'])
 @login_required
@@ -1088,8 +1084,9 @@ def storefront_tables():
 
     tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
     # Sort numerically if possible, otherwise alphabetically
-    tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
 
+    # Sort tables using natural sort order for alphanumeric numbers
+    tables.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', x.number)])
     # Fetch active orders for status display
     active_orders = Order.query.filter_by(restaurant_id=current_user.restaurant_id).filter(
         Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid'])
@@ -1143,7 +1140,7 @@ def storefront_delete_table(table_id):
     
     # Determine next table to highlight
     all_tables = Table.query.filter_by(restaurant_id=current_user.restaurant_id).all()
-    all_tables.sort(key=lambda x: int(x.number) if x.number.isdigit() else x.number)
+    all_tables.sort(key=lambda x: [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', x.number)])
     
     next_id = None
     try:

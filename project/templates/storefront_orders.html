@@ -49,6 +49,7 @@
     .dot-preparing { background-color: #0dcaf0; }
     .dot-ready { background-color: #198754; }
     .dot-completed { background-color: #6c757d; }
+    .dot-served { background-color: #198754; }
 
     .detail-pane {
         background-color: #ffffff;
@@ -241,6 +242,7 @@
                                 <div class="bg-light rounded-3 p-2 px-3 fw-bold me-3" style="min-width: 50px; text-align: center;">{{ item.quantity }}x</div>
                                 <div>
                                     <div class="fw-bold">
+                                        <span class="status-dot dot-{{ item.status }}" title="{{ 'Cooking' if item.status == 'preparing' else item.status|title }}"></span>
                                         {{ item.menu_item.name }}
                                         <span class="unit-price-tag ms-2">@ ${{ "%.2f"|format(item.menu_item.price) }}</span>
                                     </div>

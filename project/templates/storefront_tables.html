@@ -3,183 +3,213 @@
 {% block title %}Tables & QR{% endblock %}
 {% block styles %}
 <style>
-    .status-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 8px;
-    }  
-    .dot-available { background-color: #27da75; } /* success */
-    .dot-occupied { background-color: #ffc107; } /* warning */
-    .dot-not-available { background-color: #ef4444; } /* dark */
-    .dot-needs-clearing { background-color: #0d6efd; } /* primary */
+    .table-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.5rem;
+        padding-bottom: 2rem;
+    }
+    .table-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        border: 2px solid transparent;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 160px;
+    }
+    .table-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-hover);
+    }
+    
+    .status-available { border-top: 4px solid #198754; }
+    .status-occupied { border-top: 4px solid #ffc107; }
+    .status-not-available { border-top: 4px solid #212529; }
+    .status-needs-clearing { border-top: 4px solid #0d6efd; }
+
+    .table-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-dark);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row h-100">
-        <!-- Left Column: Listing -->
-        <div class="col-md-4 col-lg-3 border-end bg-white p-0" style="min-height: calc(100vh - 100px);">
-            <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
-                <h5 class="fw-bold mb-0">Tables</h5>
-                <form action="{{ url_for('admin.storefront_tables') }}" method="POST" class="m-0">
-                    <input type="hidden" name="action" value="auto_create">
-                    <button type="submit" class="btn btn-sm btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> New</button>
-                </form>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Tables & QR</h2>
+            <p class="text-muted mb-0">Manage floor plan and table configurations.</p>
+        </div>
+        <form action="{{ url_for('admin.storefront_tables') }}" method="POST">
+            <input type="hidden" name="action" value="auto_create">
+            <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                <i class="bi bi-plus-lg me-2"></i>Add Table
+            </button>
+        </form>
+    </div>
+
+    <div class="table-grid">
+        {% for table in tables %}
+        {% set data = table_data.get(table.id) %}
+        {% set status_class = data.status|lower|replace(' ', '-') %}
+        
+        <div class="table-card p-4 shadow-sm status-{{ status_class }}" 
+             onclick='openConfigModal({{ table.id }}, "{{ table.number }}", "{{ table.status }}", "{{ table.seating_capacity or "" }}", "{{ table.floor or "" }}", {{ table.reservation_info|tojson|safe }}, "{{ (table.notes or "")|replace("\n", " ")|replace("'", "\\'") }}")'>
+            
+            <div class="d-flex justify-content-between align-items-start">
+                <span class="badge bg-{{ data.color }} rounded-pill">{{ data.status }}</span>
+                <span class="badge bg-light text-muted rounded-pill border"><i class="bi bi-people-fill me-1"></i> {{ table.seating_capacity or '-' }}</span>
             </div>
-            <div class="list-group list-group-flush overflow-auto" style="max-height: calc(100vh - 160px);">
-                {% for table in tables %}
-                {% set data = table_data.get(table.id) %}
-                <a href="{{ url_for('admin.storefront_tables', table_id=table.id) }}" 
-                   class="list-group-item list-group-item-action py-3 border-0 {% if selected_table and selected_table.id == table.id %}bg-secondary bg-opacity-10{% endif %}">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="fw-bold mb-0">Table {{ table.number }} {% if table.floor %}<small class="text-muted fw-normal">({{ table.floor }})</small>{% endif %}</h5>
-                        <div class="badge rounded-pill bg-light text-dark border fw-normal d-flex align-items-center justify-content-center" style="min-width: 120px; padding: 8px 0;">
-                            {% set status_class = data.status|lower|replace(' ', '-') %}
-                            <span class="status-dot dot-{{ status_class }}"></span>
-                            <span>{{ data.status }}</span>
-                        </div>
-                    </div>
-                    <div class="small text-muted mt-1">
-                        {% if table.seating_capacity %}
-                            ({{ table.seating_capacity }} seats)
-                        {% else %}
-                            &nbsp;
-                        {% endif %}
-                    </div>
-                </a>
-                {% else %}
-                <div class="text-center py-5 text-muted">
-                    <p class="mb-0">No tables yet.</p>
-                </div>
-                {% endfor %}
+
+            <div class="text-center my-3">
+                <div class="table-number">Table {{ table.number }}</div>
+                {% if table.floor %}<div class="text-muted small">{{ table.floor }}</div>{% endif %}
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-auto pt-3 border-top">
+                <small class="text-muted"><i class="bi bi-qr-code"></i> QR Ready</small>
+                <i class="bi bi-gear text-muted"></i>
             </div>
         </div>
+        {% endfor %}
+    </div>
+</div>
 
-        <!-- Right Column: Configuration -->
-        <div class="col-md-8 col-lg-9 p-4 bg-light">
-            {% if selected_table %}
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-                    <h4 class="fw-bold mb-0">Configuration: Table {{ selected_table.number }}</h4>
-                    <form action="{{ url_for('admin.storefront_delete_table', table_id=selected_table.id) }}" method="POST">
-                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill">
-                            <i class="bi bi-trash me-1"></i> Delete Table
-                        </form>
-                </div>
-                <div class="card-body p-4">
-                    <div class="row">
-                        <!-- QR Display -->
-                        <div class="col-md-5 text-center border-end">
-                            {% set qr_url = url_for('qrlink.customer_view', slug=restaurant.slug, table=selected_table.number, _external=True) %}
-                            {% set qr_color = restaurant.qr_config.get('color', '000000') %}
-                            {% set qr_bgcolor = restaurant.qr_config.get('bgcolor', 'FFFFFF') %}
+<!-- Config Modal -->
+<div class="modal fade" id="configTableModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold">Configure Table <span id="modalTableNum"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row">
+                    <!-- QR Column -->
+                    <div class="col-md-4 text-center border-end">
+                        <h6 class="text-muted mb-3">QR Code</h6>
+                        <div class="bg-white p-3 border rounded d-inline-block mb-3">
+                            <img id="modalQrImage" src="" class="img-fluid" style="width: 150px;">
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a id="modalQrDownload" href="#" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill">Download PNG</a>
+                        </div>
+                    </div>
+                    
+                    <!-- Form Column -->
+                    <div class="col-md-8 ps-md-4">
+                        <form method="POST" action="{{ url_for('admin.storefront_tables') }}" id="configForm">
+                            <input type="hidden" name="action" value="update">
+                            <input type="hidden" name="table_id" id="modalTableId">
                             
-                            <h6 class="text-muted mb-3">QR Code</h6>
-                            <div class="bg-white p-3 border rounded d-inline-block mb-3">
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ qr_url }}&color={{ qr_color }}&bgcolor={{ qr_bgcolor }}" 
-                                     alt="QR for Table {{ selected_table.number }}" 
-                                     class="img-fluid" style="width: 180px;">
+                            <div class="row g-3 mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small fw-bold">Number</label>
+                                    <input type="text" name="number" id="modalNumber" class="form-control" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-bold">Status</label>
+                                    <select name="status" id="modalStatus" class="form-select">
+                                        <option value="available">Available</option>
+                                        <option value="occupied">Occupied</option>
+                                        <option value="maintenance">Not Available</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-bold">Capacity</label>
+                                    <input type="number" name="seating_capacity" id="modalCapacity" class="form-control">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-bold">Floor</label>
+                                    <input type="text" name="floor" id="modalFloor" class="form-control">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">Notes</label>
+                                    <textarea name="notes" id="modalNotes" class="form-control" rows="2"></textarea>
+                                </div>
                             </div>
-                            <div class="d-grid gap-2 col-8 mx-auto">
-                                <a href="{{ qr_url }}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill">Test Link</a>
-                                <a href="https://api.qrserver.com/v1/create-qr-code/?size=500x500&data={{ qr_url }}&color={{ qr_color }}&bgcolor={{ qr_bgcolor }}" 
-                                   download="table-{{ selected_table.number }}-qr.png" target="_blank" class="btn btn-primary btn-sm rounded-pill">Download PNG</a>
-                            </div>
-                        </div>
-
-                        <!-- Edit Form -->
-                        <div class="col-md-7 ps-md-4">
-                            <h6 class="text-muted mb-3">Settings</h6>
-                            <form method="POST" action="{{ url_for('admin.storefront_tables') }}">
-                                <input type="hidden" name="action" value="update">
-                                <input type="hidden" name="table_id" value="{{ selected_table.id }}">
-                                
-                                <!-- Basic Info -->
-                                <div class="row g-3 mb-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Table Number</label>
-                                        <input type="text" name="number" class="form-control fw-bold" value="{{ selected_table.number }}" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Manual Status</label>
-                                        <select name="status" class="form-select">
-                                            <option value="available" {% if selected_table.status == 'available' %}selected{% endif %}>Available</option>
-                                            <option value="occupied" {% if selected_table.status == 'occupied' %}selected{% endif %}>Occupied</option>
-                                            <option value="maintenance" {% if selected_table.status == 'maintenance' %}selected{% endif %}>Not Available</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Seating Capacity</label>
-                                        <input type="number" name="seating_capacity" class="form-control" value="{{ selected_table.seating_capacity or '' }}">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Floor / Location</label>
-                                        <input type="text" name="floor" class="form-control" value="{{ selected_table.floor or '' }}" placeholder="e.g. Main Hall, Patio">
-                                    </div>
+                            
+                            <!-- Reservation Fields -->
+                            <div class="bg-light p-3 rounded mb-3">
+                                <h6 class="small fw-bold text-muted mb-2">Reservation</h6>
+                                <div class="row g-2">
                                     <div class="col-12">
-                                        <label class="form-label">Notes</label>
-                                        <textarea name="notes" class="form-control" rows="2" placeholder="e.g. Near window, quiet corner">{{ selected_table.notes or '' }}</textarea>
+                                        <input type="text" name="res_name" id="modalResName" class="form-control form-control-sm" placeholder="Customer Name">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="date" name="res_date" id="modalResDate" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-3">
+                                        <input type="time" name="res_start" id="modalResStart" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-3">
+                                        <input type="time" name="res_end" id="modalResEnd" class="form-control form-control-sm">
                                     </div>
                                 </div>
+                            </div>
 
-                                <hr>
-
-                                <!-- Reservation -->
-                                <button class="btn btn-light w-100 text-start d-flex justify-content-between align-items-center mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#reservationCollapse">
-                                    <span class="fw-bold text-muted">Reservation</span>
-                                    <i class="bi bi-chevron-down"></i>
-                                </button>
-                                <div class="collapse" id="reservationCollapse">
-                                    <div class="bg-light p-3 rounded mb-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Reserved By</label>
-                                            <input type="text" name="res_name" class="form-control" value="{{ selected_table.reservation_info.get('name', '') }}" placeholder="Customer Name">
-                                        </div>
-                                        <div class="row g-2">
-                                            <div class="col-md-6">
-                                                <label class="form-label small">Date</label>
-                                                <input type="date" name="res_date" class="form-control" value="{{ selected_table.reservation_info.get('date', '') }}">
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="form-label small">Start</label>
-                                                <input type="time" name="res_start" class="form-control" value="{{ selected_table.reservation_info.get('start', '') }}">
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="form-label small">End</label>
-                                                <input type="time" name="res_end" class="form-control" value="{{ selected_table.reservation_info.get('end', '') }}">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill shadow-sm">Save Changes</button>
-                            </form>
-                        </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button type="button" class="btn btn-link text-danger p-0 text-decoration-none" onclick="submitDelete()">Delete Table</button>
+                                <button type="submit" class="btn btn-primary rounded-pill px-4">Save Changes</button>
+                            </div>
+                        </form>
+                        
+                        <form id="deleteForm" method="POST" action="">
+                        </form>
                     </div>
                 </div>
             </div>
-            {% else %}
-            <!-- Empty State / Add New -->
-            <div class="card border-0 shadow-sm h-100 d-flex justify-content-center align-items-center p-5 text-center">
-                <div style="max-width: 400px;">
-                    <div class="mb-4 text-primary opacity-25">
-                        <i class="bi bi-arrow-left-circle" style="font-size: 5rem;"></i>
-                    </div>
-                    <h3 class="fw-bold mb-3">Select a Table</h3>
-                    <p class="text-muted mb-4">Select a table from the list to configure details or create a new one.</p>
-                    <form action="{{ url_for('admin.storefront_tables') }}" method="POST">
-                        <input type="hidden" name="action" value="auto_create">
-                        <button type="submit" class="btn btn-primary rounded-pill px-4">
-                            <i class="bi bi-plus-lg me-2"></i>Add Table
-                        </button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openConfigModal(id, number, status, capacity, floor, reservation, notes) {
+    document.getElementById('modalTableId').value = id;
+    document.getElementById('modalNumber').value = number;
+    document.getElementById('modalTableNum').textContent = number;
+    document.getElementById('modalStatus').value = status;
+    document.getElementById('modalCapacity').value = capacity;
+    document.getElementById('modalFloor').value = floor;
+    document.getElementById('modalNotes').value = notes;
+    
+    // Reservation
+    document.getElementById('modalResName').value = reservation.name || '';
+    document.getElementById('modalResDate').value = reservation.date || '';
+    document.getElementById('modalResStart').value = reservation.start || '';
+    document.getElementById('modalResEnd').value = reservation.end || '';
+
+    // QR Code Generation
+    const qrColor = "{{ restaurant.qr_config.get('color', '000000') }}";
+    const qrBg = "{{ restaurant.qr_config.get('bgcolor', 'FFFFFF') }}";
+    
+    // Construct the customer view URL dynamically
+    const baseUrl = "{{ url_for('qrlink.customer_view', slug=restaurant.slug, _external=True) }}"; 
+    const qrDataUrl = `${baseUrl}?table=${number}`;
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrDataUrl)}&color=${qrColor}&bgcolor=${qrBg}`;
+    
+    document.getElementById('modalQrImage').src = qrApiUrl;
+    document.getElementById('modalQrDownload').href = qrApiUrl.replace('200x200', '500x500');
+
+    // Delete Action
+    const deleteUrl = "{{ url_for('admin.storefront_delete_table', table_id=0) }}".replace('0', id);
+    document.getElementById('deleteForm').action = deleteUrl;
+
+    new bootstrap.Modal(document.getElementById('configTableModal')).show();
+}
+
+function submitDelete() {
+    if(confirm('Are you sure you want to delete this table?')) {
+        document.getElementById('deleteForm').submit();
+    }
+}
+</script>
 {% endblock %}
