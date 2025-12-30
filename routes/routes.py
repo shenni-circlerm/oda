@@ -1281,7 +1281,7 @@ def storefront_orders():
                     # Move items from source to target
                     for item in source_order.items:
                         # Check if same item exists in target to merge quantities
-                        existing_item = OrderItem.query.filter_by(order_id=target_order.id, menu_item_id=item.menu_item_id).first()
+                        existing_item = OrderItem.query.filter_by(order_id=target_order.id, menu_item_id=item.menu_item_id, notes=item.notes).first()
                         if existing_item:
                             existing_item.quantity += item.quantity
                             db.session.delete(item)
@@ -1340,6 +1340,21 @@ def storefront_orders():
         Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid'])
     ).order_by(Order.created_at.desc()).all()
     
+    # Pre-calculate item counts and totals for each order
+    for order in orders:
+        total_items = len(order.items)
+        if total_items > 0:
+            order.item_counts = {
+                'total': total_items,
+                'pending': sum(1 for item in order.items if item.status == 'pending'),
+                'preparing': sum(1 for item in order.items if item.status == 'preparing'),
+                'ready': sum(1 for item in order.items if item.status == 'ready')
+            }
+            order.total_price = sum(item.menu_item.price * item.quantity for item in order.items)
+        else:
+            order.item_counts = None
+            order.total_price = 0
+
     menu_items = MenuItem.query.filter_by(restaurant_id=restaurant.id, is_available=True).all()
     
     # A table is unavailable for a new order if it has an active, unpaid order.

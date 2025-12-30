@@ -2,9 +2,11 @@
     /* Bold SaaS Color Palette */
     --primary-color: #6366F1; /* Electric Indigo */
     --primary-hover: #4F46E5;
+    --primary-light: rgba(99, 102, 241, 0.1);
     --secondary-color: #1E293B; /* Slate 800 */
     --success-color: #10B981;
     --warning-color: #F59E0B;
+    --danger-color: #ef4444; /* Red-500 */
     --text-dark: #0F172A;
     --text-muted: #64748B;
     --bg-light: #F8FAFC;
@@ -209,7 +211,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-outline-primary {
     background-color: transparent;
-    border: 2px solid var(--primary-color) !important;
+    border: 1px solid var(--primary-color) !important;
     color: var(--primary-color) !important;
 }
 
@@ -217,6 +219,48 @@ h1, h2, h3, h4, h5, h6 {
     background-color: var(--primary-color) !important;
     color: #ffffff !important;
 }
+
+.btn-outline-success {
+    background-color: transparent;
+    border: 1px solid var(--success-color) !important;
+    color: var(--success-color) !important;
+}
+
+.btn-outline-success:hover {
+    background-color: var(--success-color) !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-danger {
+    background-color: transparent;
+    border: 1px solid var(--danger-color) !important;
+    color: var(--danger-color) !important;
+}
+
+.btn-outline-danger:hover {
+    background-color: var(--danger-color) !important;
+    color: #ffffff !important;
+}
+.btn-outline-secondary {
+    background-color: transparent;
+    border: 1px solid #e2e8f0 !important;
+    color: var(--text-muted) !important;
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--bg-light) !important;
+    border-color: #ced4da !important;
+}
+
+.btn-xs {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+}
+
+.btn-check:checked + .btn-outline-danger, .btn-outline-danger.active { color: white !important; background-color: var(--danger-color) !important; border-color: var(--danger-color) !important; }
+.btn-check:checked + .btn-outline-success { color: white !important; background-color: var(--success-color) !important; border-color: var(--success-color) !important; }
+.btn-check:checked + .btn-outline-secondary { color: var(--text-dark) !important; background-color: #e9ecef !important; border-color: #d3d9df !important;}
+
 
 /* ---------------------------------------------------
    Forms

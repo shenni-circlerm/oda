@@ -34,8 +34,8 @@
     }
 
     .order-item-card.active {
-        border: 2px solid var(--bs-primary);
-        background: #f0f7ff;
+        border: 2px solid var(--primary-color);
+        background: var(--primary-light);
     }
 
     .status-dot {
@@ -113,7 +113,7 @@
 
     .edit-item-btn:hover {
         background: #e9ecef;
-        color: var(--bs-primary);
+        color: var(--primary-color);
     }
 </style>
 {% endblock %}
@@ -129,6 +129,17 @@
                     <i class="bi bi-plus-lg"></i>
                 </button>
             </div>
+
+            <div class="p-2 border-bottom bg-white">
+                <div class="d-flex gap-1 overflow-auto pb-1" id="payment-status-filter">
+                    <input type="radio" class="btn-check" name="payment-filter" id="filter-all" value="all" checked>
+                    <label class="btn btn-xs btn-outline-secondary rounded-pill" for="filter-all">All</label>
+                    <input type="radio" class="btn-check" name="payment-filter" id="filter-unpaid" value="unpaid">
+                    <label class="btn btn-xs btn-outline-danger rounded-pill" for="filter-unpaid">Unpaid</label>
+                    <input type="radio" class="btn-check" name="payment-filter" id="filter-paid" value="paid">
+                    <label class="btn btn-xs btn-outline-success rounded-pill" for="filter-paid">Paid</label>
+                </div>
+            </div>
             
             <div class="order-list-scroll">
                 {% for order in orders %}
@@ -142,9 +153,22 @@
                         <span class="status-dot dot-{{ order.status }}"></span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mt-2">
-                        <span class="badge bg-light text-dark border">{{ order.status|title }}</span>
+                        <div class="small text-muted">{{ order.item_counts.total if order.item_counts else 0 }} items</div>
+                        <div class="text-end">
                         {% if order.status in ['pending', 'preparing'] %}
-                        <span class="timer small text-danger" data-timestamp="{{ order.created_at.isoformat() }}Z"><i class="bi bi-clock"></i> ...</span>
+                            <div class="timer small text-danger" data-timestamp="{{ order.created_at.isoformat() }}Z"><i class="bi bi-clock"></i> ...</div>
+                        {% endif %}
+                        <span class="fw-bold small">${{ "%.2f"|format(order.total_price) }}</span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        {% if order.item_counts and order.item_counts.total > 0 %}
+                        {% set ready_percent = (order.item_counts.ready / order.item_counts.total) * 100 %}
+                        {% set preparing_percent = (order.item_counts.preparing / order.item_counts.total) * 100 %}
+                        <div class="progress" style="height: 5px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ ready_percent }}%" title="{{ order.item_counts.ready }} Ready"></div>
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ preparing_percent }}%" title="{{ order.item_counts.preparing }} Preparing"></div>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
@@ -162,6 +186,9 @@
                             <h2 class="fw-bold mb-0">Table {{ selected_order.table_number }}</h2>
                             <button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#transferTableModal">
                                 <i class="bi bi-arrow-left-right me-1"></i> Move
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#mergeOrderModal">
+                                <i class="bi bi-union me-1"></i> Merge
                             </button>
                         </div>
                         <div class="text-muted mt-1">Order ID: #{{ selected_order.id }}</div>
@@ -326,6 +353,39 @@
     </div>
 </div>
 
+<!-- Merge Order Modal -->
+<div class="modal fade" id="mergeOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Merge Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
+                <input type="hidden" name="action" value="merge_orders">
+                <input type="hidden" name="order_id" value="{{ selected_order.id if selected_order else '' }}">
+                <div class="modal-body">
+                    <p class="small text-muted">Combine this order into another active order. This action cannot be undone.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Target Order</label>
+                        <select name="target_order_id" class="form-select" required>
+                            <option value="">Select an order to merge into...</option>
+                            {% for order in orders %}
+                                {% if selected_order and order.id != selected_order.id and order.status != 'paid' %}
+                                <option value="{{ order.id }}">Order #{{ (order.id|string)[-4:]|upper }} (Table {{ order.table.number }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-dark w-100 rounded-pill">Confirm Merge</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="editItemModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow">
@@ -457,6 +517,25 @@
                 });
                 this.classList.replace('btn-outline-secondary', 'btn-primary');
                 filterItems();
+            });
+        });
+
+        const paymentFilterRadios = document.querySelectorAll('input[name="payment-filter"]');
+        paymentFilterRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const filterValue = this.value;
+                const orderItems = document.querySelectorAll('.order-item-card');
+                orderItems.forEach(item => {
+                    // This assumes the last status dot reflects payment.
+                    // A more robust way would be to add a `data-payment-status` attribute.
+                    const isPaid = item.querySelector('.status-dot.dot-paid, .status-dot.dot-completed');
+                    
+                    if (filterValue === 'all' || (filterValue === 'paid' && isPaid) || (filterValue === 'unpaid' && !isPaid)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
             });
         });
     });
