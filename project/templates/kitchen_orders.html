@@ -60,6 +60,17 @@
     .status-preparing { border-left-color: #0d6efd; background: #eff6ff; }
     .status-ready { border-left-color: #198754; background: #f0fdf4; opacity: 0.8; }
     
+    .item-ticket.was-printed {
+        opacity: 0.6;
+    }
+    .item-ticket.was-printed::after {
+        content: "\F4FF"; /* Bootstrap Icon for printer */
+        font-family: "bootstrap-icons";
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: #6c757d;
+    }
     .timer { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.8rem; }
 
     .empty-state-container {
@@ -128,13 +139,19 @@
             <div class="station-card shadow-sm">
                 <div class="station-header">
                     <h6 class="fw-bold mb-0 text-uppercase tracking-wider small">{{ station.name }}</h6>
-                    <span class="badge bg-white text-dark rounded-pill shadow-sm small">
-                        {{ station_items[station.id]|length }}
-                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-light border rounded-pill px-3" onclick="printStationTickets('{{ station.id }}')"><i class="bi bi-printer-fill me-1"></i> Print New</button>
+                        <span class="badge bg-white text-dark rounded-pill shadow-sm small">{{ station_items[station.id]|length }}</span>
+                    </div>
                 </div>
                 <div class="station-body">
                     {% for item in station_items[station.id] %}
-                    <div class="item-ticket status-{{ item.status }}" draggable="true" data-menu-item-id="{{ item.menu_item.id }}">
+                    <div class="item-ticket status-{{ item.status }}" draggable="true" 
+                         data-menu-item-id="{{ item.menu_item.id }}"
+                         data-item-name="{{ item.menu_item.name|replace("'", "\\'") }}"
+                         data-item-qty="{{ item.quantity }}"
+                         data-table-num="{{ item.order.table.number }}"
+                         data-item-notes="{{ (item.notes or '')|replace("'", "\\'") }}">
                         <div class="d-flex justify-content-between mb-2">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
@@ -182,13 +199,19 @@
             <div class="station-card shadow-sm">
                 <div class="station-header">
                     <h6 class="fw-bold mb-0 text-uppercase tracking-wider small">Uncategorized</h6>
-                    <span class="badge bg-white text-dark rounded-pill shadow-sm small">
-                        {{ uncategorized_items|length }}
-                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-light border rounded-pill px-3" onclick="printStationTickets('uncategorized')"><i class="bi bi-printer-fill me-1"></i> Print New</button>
+                        <span class="badge bg-white text-dark rounded-pill shadow-sm small">{{ uncategorized_items|length }}</span>
+                    </div>
                 </div>
                 <div class="station-body">
                     {% for item in uncategorized_items %}
-                    <div class="item-ticket status-{{ item.status }}" draggable="true" data-menu-item-id="{{ item.menu_item.id }}">
+                    <div class="item-ticket status-{{ item.status }}" draggable="true" 
+                         data-menu-item-id="{{ item.menu_item.id }}"
+                         data-item-name="{{ item.menu_item.name|replace("'", "\\'") }}"
+                         data-item-qty="{{ item.quantity }}"
+                         data-table-num="{{ item.order.table.number }}"
+                         data-item-notes="{{ (item.notes or '')|replace("'", "\\'") }}">
                         <div class="d-flex justify-content-between mb-2">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
@@ -531,6 +554,57 @@ document.addEventListener('DOMContentLoaded', function() {
             printWindow.focus();
             printWindow.print();
             printWindow.close();
+        }, 500);
+    };
+
+    // 6. Print All New Tickets in a Station
+    window.printStationTickets = function(stationId) {
+        const stationCol = document.querySelector(`.station-col[data-station-id="${stationId}"]`);
+        if (!stationCol) return;
+
+        const ticketsToPrint = stationCol.querySelectorAll('.item-ticket:not(.was-printed)');
+
+        if (ticketsToPrint.length === 0) {
+            // Optionally provide feedback, or just do nothing.
+            // A small visual cue on the button could be good.
+            return;
+        }
+
+        let combinedContent = '';
+        const separator = '<div style="border-top: 2px dashed black; margin: 20px 0; page-break-after: always;"></div>';
+
+        ticketsToPrint.forEach((ticket, index) => {
+            const name = ticket.dataset.itemName;
+            const qty = ticket.dataset.itemQty;
+            const table = ticket.dataset.tableNum;
+            const notes = ticket.dataset.itemNotes;
+
+            const ticketContent = `
+                <div style="font-family: 'Courier New', monospace; width: 300px; padding: 10px; color: black;">
+                    <div style="display: flex; justify-content: space-between; align-items-center; border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 10px;">
+                        <h2 style="margin: 0; font-size: 1.5rem;">Table ${table}</h2>
+                        <span style="font-size: 0.8rem;">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">${qty} x ${name}</div>
+                    ${notes ? `<div style="margin-top: 5px; font-style: italic;">Note: ${notes}</div>` : ''}
+                </div>
+            `;
+            
+            combinedContent += ticketContent;
+            if (index < ticketsToPrint.length - 1) {
+                combinedContent += separator;
+            }
+        });
+
+        const printWindow = window.open('', '', 'height=800,width=500');
+        printWindow.document.write(`<html><head><title>Print Station Tickets</title></head><body style="margin:0">${combinedContent}</body></html>`);
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+            ticketsToPrint.forEach(ticket => ticket.classList.add('was-printed'));
         }, 500);
     };
 });

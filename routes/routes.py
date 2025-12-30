@@ -380,6 +380,7 @@ def kitchen_update_item_status(item_id, status):
         print(f"DEBUG: Item {item_id} updated to {db_status}")
         
         # Check if entire order is ready
+        # Re-calculate and update the aggregate order status
         order = item.order
         if all(i.status == 'ready' for i in order.items):
             if order.status != 'ready':
@@ -387,6 +388,26 @@ def kitchen_update_item_status(item_id, status):
                 db.session.commit()
                 print(f"DEBUG: Order {order.id} is now fully READY")
                 socketio.emit('status_change', {'order_id': order.id, 'new_status': 'ready'}, room=f"order_{order.id}")
+        current_item_statuses = {i.status for i in order.items}
+        original_order_status = order.status
+        new_order_status = original_order_status
+
+        if not current_item_statuses:
+            new_order_status = 'pending'
+        elif 'preparing' in current_item_statuses:
+            new_order_status = 'preparing'
+        elif all(s in ['ready', 'served', 'completed', 'paid'] for s in current_item_statuses):
+            # If nothing is preparing or pending, and all items are done, the order is ready.
+            new_order_status = 'ready'
+        else:
+            # If there are no 'preparing' items, but there are 'pending' items.
+            new_order_status = 'pending'
+
+        if original_order_status != new_order_status:
+            order.status = new_order_status
+            db.session.commit()
+            print(f"DEBUG: Order {order.id} status changed from '{original_order_status}' to '{new_order_status}'")
+            socketio.emit('status_change', {'order_id': order.id, 'new_status': new_order_status}, room=f"order_{order.id}")
 
         return jsonify({'success': True})
     
@@ -1492,7 +1513,8 @@ def storefront_payment(order_id):
             # Here you would integrate with a real payment gateway if needed
             # For now, we just update the status
             db.session.commit()
-            flash(f'Order #{order.id} for Table {order.table.number} marked as paid.')
+            target = f"Table {order.table.number}" if order.table else "Takeaway"
+            flash(f'Order #{order.id} for {target} marked as paid.')
             return redirect(url_for('admin.storefront_orders'))
 
     total = sum(item.menu_item.price * item.quantity for item in order.items)
