@@ -5,8 +5,9 @@ from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 from sqlalchemy.orm.attributes import flag_modified
 
 from project.models import User, Restaurant, Order, MenuItem, Table, Category, OrderItem, Menu, ModifierGroup, ModifierOption, Station
@@ -1346,9 +1347,33 @@ def storefront_orders():
         
         return redirect(url_for('admin.storefront_orders', order_id=order_id))
 
-    orders = Order.query.filter_by(restaurant_id=restaurant.id).filter(
-        Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid'])
-    ).order_by(Order.created_at.desc()).all()
+    payment_filter = request.args.get('payment_filter', 'unpaid')  # Default to 'unpaid'
+    date_filter = request.args.get('date_filter', 'today')  # Default to 'today'
+
+    base_query = Order.query.filter_by(restaurant_id=restaurant.id)
+
+    # Apply date filter
+    if date_filter == 'today':
+        base_query = base_query.filter(func.date(Order.created_at) == date.today())
+    elif date_filter == 'yesterday':
+        yesterday = date.today() - timedelta(days=1)
+        base_query = base_query.filter(func.date(Order.created_at) == yesterday)
+    elif date_filter == 'last_7_days':
+        seven_days_ago = date.today() - timedelta(days=7)
+        base_query = base_query.filter(func.date(Order.created_at) >= seven_days_ago)
+
+    # Apply payment status filter
+    if payment_filter == 'unpaid':
+        # Show all orders that are not paid or cancelled
+        base_query = base_query.filter(Order.status.notin_(['paid', 'cancelled']))
+    elif payment_filter == 'paid':
+        # Show only paid orders
+        base_query = base_query.filter(Order.status == 'paid')
+    else:  # 'all'
+        # Show all relevant orders (excluding cancelled)
+        base_query = base_query.filter(Order.status.in_(['pending', 'preparing', 'ready', 'served', 'paid']))
+
+    orders = base_query.order_by(Order.created_at.desc()).all()
     
     # Pre-calculate item counts and totals for each order
     for order in orders:
@@ -1391,7 +1416,7 @@ def storefront_orders():
     ).order_by(Category.name).all()
 
 
-    return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables, categories=categories)
+    return render_template('storefront_orders.html', orders=orders, selected_order=selected_order, menu_items=menu_items, available_tables=available_tables, categories=categories, payment_filter=payment_filter, date_filter=date_filter)
 
 @admin_bp.route('/storefront/payment/<int:order_id>', methods=['GET', 'POST'])
 @login_required

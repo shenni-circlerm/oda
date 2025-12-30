@@ -115,6 +115,13 @@
         background: #e9ecef;
         color: var(--primary-color);
     }
+
+    /* Force white text on active filter buttons */
+    .btn-outline-secondary.active,
+    .btn-outline-danger.active,
+    .btn-outline-success.active {
+        color: #fff !important;
+    }
 </style>
 {% endblock %}
 
@@ -131,20 +138,30 @@
             </div>
 
             <div class="p-2 border-bottom bg-white">
-                <div class="d-flex gap-1 overflow-auto pb-1" id="payment-status-filter">
-                    <input type="radio" class="btn-check" name="payment-filter" id="filter-all" value="all" checked>
-                    <label class="btn btn-xs btn-outline-secondary rounded-pill" for="filter-all">All</label>
-                    <input type="radio" class="btn-check" name="payment-filter" id="filter-unpaid" value="unpaid">
-                    <label class="btn btn-xs btn-outline-danger rounded-pill" for="filter-unpaid">Unpaid</label>
-                    <input type="radio" class="btn-check" name="payment-filter" id="filter-paid" value="paid">
-                    <label class="btn btn-xs btn-outline-success rounded-pill" for="filter-paid">Paid</label>
+                <!-- Date Filter -->
+                <div class="d-flex gap-1 overflow-auto pb-2 mb-2 border-bottom">
+                    <a href="{{ url_for('admin.storefront_orders', payment_filter=payment_filter, date_filter='today') }}" 
+                       class="btn btn-xs btn-outline-secondary rounded-pill {% if date_filter == 'today' %}active{% endif %}">Today</a>
+                    <a href="{{ url_for('admin.storefront_orders', payment_filter=payment_filter, date_filter='yesterday') }}" 
+                       class="btn btn-xs btn-outline-secondary rounded-pill {% if date_filter == 'yesterday' %}active{% endif %}">Yesterday</a>
+                    <a href="{{ url_for('admin.storefront_orders', payment_filter=payment_filter, date_filter='week') }}" 
+                       class="btn btn-xs btn-outline-secondary rounded-pill {% if date_filter == 'week' %}active{% endif %}">This Week</a>
+                </div>
+                <!-- Payment Filter -->
+                <div class="d-flex gap-1 overflow-auto pb-1">
+                    <a href="{{ url_for('admin.storefront_orders', date_filter=date_filter, payment_filter='all') }}" 
+                       class="btn btn-xs btn-outline-secondary rounded-pill {% if payment_filter == 'all' %}active{% endif %}">All</a>
+                    <a href="{{ url_for('admin.storefront_orders', date_filter=date_filter, payment_filter='unpaid') }}" 
+                       class="btn btn-xs btn-outline-danger rounded-pill {% if payment_filter == 'unpaid' %}active{% endif %}">Unpaid</a>
+                    <a href="{{ url_for('admin.storefront_orders', date_filter=date_filter, payment_filter='paid') }}" 
+                       class="btn btn-xs btn-outline-success rounded-pill {% if payment_filter == 'paid' %}active{% endif %}">Paid</a>
                 </div>
             </div>
             
             <div class="order-list-scroll">
                 {% for order in orders %}
                 <div class="order-item-card {% if selected_order and selected_order.id == order.id %}active{% endif %}" 
-                     onclick="window.location.href='{{ url_for('admin.storefront_orders', order_id=order.id) }}'">
+                     onclick="window.location.href='{{ url_for('admin.storefront_orders', order_id=order.id, date_filter=date_filter, payment_filter=payment_filter) }}'">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
                             <span class="fw-bold">Order #{{ (order.id|string)[-4:]|upper }}</span>
@@ -274,6 +291,7 @@
     </div>
 </div>
 
+{% if selected_order %}
 <!-- Add Item Modal -->
 <div class="modal fade" id="addItemModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-scrollable modal-lg">
@@ -284,7 +302,7 @@
             </div>
             <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
                 <input type="hidden" name="action" value="add_multiple_items">
-                <input type="hidden" name="order_id" value="{{ selected_order.id if selected_order else '' }}">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
                 <div class="modal-body">
                     <div class="mb-3 sticky-top bg-white pt-2 pb-1">
                         <input type="search" id="item-search-input" class="form-control" placeholder="Search by name or SKU...">
@@ -342,7 +360,7 @@
             </div>
             <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
                 <input type="hidden" name="action" value="move_table">
-                <input type="hidden" name="order_id" value="{{ selected_order.id if selected_order else '' }}">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">New Table</label>
@@ -372,7 +390,7 @@
             </div>
             <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
                 <input type="hidden" name="action" value="merge_orders">
-                <input type="hidden" name="order_id" value="{{ selected_order.id if selected_order else '' }}">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
                 <div class="modal-body">
                     <p class="small text-muted">Combine this order into another active order. This action cannot be undone.</p>
                     <div class="mb-3">
@@ -380,7 +398,7 @@
                         <select name="target_order_id" class="form-select" required>
                             <option value="">Select an order to merge into...</option>
                             {% for order in orders %}
-                                {% if selected_order and order.id != selected_order.id and order.status != 'paid' %}
+                                {% if order.id != selected_order.id and order.status != 'paid' %}
                                 <option value="{{ order.id }}">Order #{{ (order.id|string)[-4:]|upper }} (Table {{ order.table.number }})</option>
                                 {% endif %}
                             {% endfor %}
@@ -433,7 +451,7 @@
             </div>
             <form action="{{ url_for('admin.storefront_orders') }}" method="POST">
                 <input type="hidden" name="action" value="update_item_quantity">
-                <input type="hidden" name="order_id" value="{{ selected_order.id if selected_order else '' }}">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
                 <input type="hidden" name="item_id" id="editItemId">
                 <div class="modal-body">
                     <div class="input-group">
@@ -449,6 +467,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <div class="modal fade" id="newOrderModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -558,24 +577,6 @@
             });
         });
 
-        const paymentFilterRadios = document.querySelectorAll('input[name="payment-filter"]');
-        paymentFilterRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                const filterValue = this.value;
-                const orderItems = document.querySelectorAll('.order-item-card');
-                orderItems.forEach(item => {
-                    // This assumes the last status dot reflects payment.
-                    // A more robust way would be to add a `data-payment-status` attribute.
-                    const isPaid = item.querySelector('.status-dot.dot-paid, .status-dot.dot-completed');
-                    
-                    if (filterValue === 'all' || (filterValue === 'paid' && isPaid) || (filterValue === 'unpaid' && !isPaid)) {
-                        item.style.display = 'block';
-                    } else {
-                        item.style.display = 'none';
-                    }
-                });
-            });
-        });
     });
 </script>
 {% endblock %}
