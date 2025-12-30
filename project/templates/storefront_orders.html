@@ -271,7 +271,7 @@
                 </div>
 
                 <div class="d-flex gap-2 justify-content-end">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="window.print()">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="printReceipt()">
                         <i class="bi bi-printer me-2"></i>Print Order
                     </button>
                     {% if selected_order.status == 'paid' %}
@@ -283,6 +283,64 @@
                             <i class="bi bi-credit-card me-2"></i>Pay
                         </a>
                     {% endif %}
+                </div>
+            </div>
+
+            <!-- Hidden Receipt Template -->
+            <div id="receipt-template" class="d-none">
+                <div style="width: 300px; padding: 20px; font-family: 'Courier New', monospace; color: #000; background: #fff;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-weight: bold; font-size: 1.5rem;">{{ current_user.restaurant.name }}</h3>
+                        {% if current_user.restaurant.address %}
+                        <div style="font-size: 0.8rem; margin-top: 5px;">{{ current_user.restaurant.address }}</div>
+                        {% endif %}
+                        {% if current_user.restaurant.phone_number %}
+                        <div style="font-size: 0.8rem; margin-top: 5px;">{{ current_user.restaurant.phone_number }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; font-size: 0.9rem;">
+                        <div>Order #: {{ (selected_order.id|string)[-4:]|upper }}</div>
+                        <div>Date: {{ selected_order.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div>Table: {{ selected_order.table.number if selected_order.table else 'Takeaway' }}</div>
+                        {% if current_user.restaurant.tax_id %}
+                        <div>Tax ID: {{ current_user.restaurant.tax_id }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 10px 0; margin-bottom: 15px;">
+                        {% for item in selected_order.items %}
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem;">
+                            <div style="flex: 1;">{{ item.quantity }}x {{ item.menu_item.name }}</div>
+                            <div style="text-align: right;">${{ "%.2f"|format(item.menu_item.price * item.quantity) }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% set subtotal = selected_order.total_price %}
+                    {% set tax_rate = current_user.restaurant.tax_rate or 0.0 %}
+                    {% set tax_amount = subtotal * tax_rate %}
+                    {% set grand_total = subtotal + tax_amount %}
+
+                    <div style="font-size: 0.9rem; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Subtotal</span>
+                            <span>${{ "%.2f"|format(subtotal) }}</span>
+                        </div>
+                        {% if tax_rate > 0 %}
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Tax ({{ "%.2f"|format(tax_rate * 100) }}%)</span>
+                            <span>${{ "%.2f"|format(tax_amount) }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-bottom: 20px; border-top: 1px solid #000; padding-top: 10px;">
+                        <span>Total</span>
+                        <span>${{ "%.2f"|format(grand_total) }}</span>
+                    </div>
+                    
+                    <div style="text-align: center; font-size: 0.8rem;">Thank you for dining with us!</div>
                 </div>
             </div>
             {% else %}
@@ -590,5 +648,20 @@
         }, 15000);
 
     });
+
+    function printReceipt() {
+        const content = document.getElementById('receipt-template').innerHTML;
+        const printWindow = window.open('', '', 'height=600,width=400');
+        printWindow.document.write('<html><head><title>Print Receipt</title></head><body style="margin: 0; display: flex; justify-content: center;">');
+        printWindow.document.write(content);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }, 500);
+    }
 </script>
 {% endblock %}

@@ -23,6 +23,7 @@ MENU_STRUCTURE = {
         'label': 'Menu',
         'description': 'Decide what’s on the menu — and what’s not.',
         'items': [
+
             {'label': 'Menu Items', 'endpoint': 'admin.menu_manage_menu', 'icon': 'bi-journal-text'},
             {'label': 'Menus', 'endpoint': 'admin.menu_menus', 'icon': 'bi-journal-album'},            
             {'label': 'Categories', 'endpoint': 'admin.menu_categories', 'icon': 'bi-tags'},
@@ -42,8 +43,10 @@ MENU_STRUCTURE = {
         'items': [
             {'label': 'Analytics', 'endpoint': 'analytics.analytics_dashboard', 'icon': 'bi-graph-up'},
             {'label': 'Staff', 'endpoint': 'admin.office_users', 'icon': 'bi-people'},
+
             {'label': 'Orders History', 'endpoint': 'admin.history', 'icon': 'bi-clock-history'},
             {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
+            {'label': 'Settings', 'endpoint': 'admin.office_settings', 'icon': 'bi-gear-fill'},            
         ]
     }
 }

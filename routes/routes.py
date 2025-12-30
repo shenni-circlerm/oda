@@ -138,6 +138,28 @@ def office_undo_delete_staff():
         flash(f"Staff member {last_deleted['email']} has been restored.")
     return redirect(url_for('admin.office_users'))
 
+@admin_bp.route('/office/settings', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def office_settings():
+    restaurant = db.session.get(Restaurant, current_user.restaurant_id)
+    if request.method == 'POST':
+        restaurant.address = request.form.get('address')
+        restaurant.phone_number = request.form.get('phone_number')
+        restaurant.tax_id = request.form.get('tax_id')
+        tax_rate_percent = request.form.get('tax_rate', '0.0')
+        try:
+            # Store tax rate as a decimal, e.g., 7% -> 0.07
+            restaurant.tax_rate = float(tax_rate_percent) / 100.0
+        except (ValueError, TypeError):
+            restaurant.tax_rate = 0.0
+        
+        db.session.commit()
+        flash('Business settings updated.')
+        return redirect(url_for('admin.office_settings'))
+        
+    return render_template('office_settings.html', restaurant=restaurant)
+
 @admin_bp.route('/menu/menu')
 @login_required
 def menu_manage_menu():

@@ -4,11 +4,46 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 import random
 import string
-from project.models import User, Restaurant
+from project.models import User, Restaurant, Table, Menu, Category, MenuItem, Station
 from extensions import db
 from .email import send_email
 
 auth_bp = Blueprint('auth', __name__)
+
+def preload_restaurant_data(restaurant_id):
+    """Preloads initial data for a new restaurant."""
+    # 1. Kitchen Station
+    station = Station(name="Kitchen", restaurant_id=restaurant_id)
+    db.session.add(station)
+    db.session.flush() # Flush to get ID for menu item assignment
+
+    # 2. Tables
+    t1 = Table(number="1", restaurant_id=restaurant_id, seating_capacity=4)
+    t2 = Table(number="2", restaurant_id=restaurant_id, seating_capacity=2)
+    db.session.add_all([t1, t2])
+
+    # 3. Categories
+    cat1 = Category(name="Beverages", restaurant_id=restaurant_id)
+    cat2 = Category(name="Food", restaurant_id=restaurant_id)
+    db.session.add_all([cat1, cat2])
+
+    # 4. Menu
+    menu = Menu(name="All Day", restaurant_id=restaurant_id)
+    menu.categories.append(cat1)
+    menu.categories.append(cat2)
+    db.session.add(menu)
+
+    # 5. Menu Item
+    item = MenuItem(
+        name="Coffee",
+        price=3.50,
+        sku="COF-001",
+        restaurant_id=restaurant_id,
+        station_id=station.id,
+        is_available=True
+    )
+    item.categories.append(cat1)
+    db.session.add(item)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -131,6 +166,8 @@ def register():
         )
         db.session.add(new_restaurant)
         db.session.flush()
+
+        preload_restaurant_data(new_restaurant.id)
 
         hashed_pw = generate_password_hash(password)
         new_admin = User(

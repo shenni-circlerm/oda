@@ -23,6 +23,12 @@ class Restaurant(db.Model):
     pages_config = db.Column(db.JSON, default={})
     qr_config = db.Column(db.JSON, default={})
 
+    # Add these new fields for receipt details
+    address = db.Column(db.String(255))
+    phone_number = db.Column(db.String(50))
+    tax_id = db.Column(db.String(100))
+    tax_rate = db.Column(db.Float, default=0.0) # e.g., 7.5% is stored as 0.075
+    
     items = db.relationship('MenuItem', backref='restaurant')
     tables = db.relationship('Table', backref='restaurant')
     categories = db.relationship('Category', backref='restaurant')
@@ -183,3 +189,7 @@ class Station(db.Model):
     name = db.Column(db.String(50), nullable=False)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     restaurant = db.relationship('Restaurant', backref='stations')
+
+
+
+
