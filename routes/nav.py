@@ -45,7 +45,7 @@ MENU_STRUCTURE = {
             {'label': 'Staff', 'endpoint': 'admin.office_users', 'icon': 'bi-people'},
 
             {'label': 'Orders History', 'endpoint': 'admin.history', 'icon': 'bi-clock-history'},
-            {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
+            # {'label': 'Payments', 'endpoint': 'admin.payments', 'icon': 'bi-credit-card'},
             {'label': 'Settings', 'endpoint': 'admin.office_settings', 'icon': 'bi-gear-fill'},            
         ]
     }

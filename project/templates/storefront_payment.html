@@ -7,22 +7,33 @@
     <div class="row justify-content-center">
         <div class="col-lg-10 col-xl-8">
             <div class="d-flex align-items-center mb-4">
-                <a href="{{ url_for('admin.storefront_orders', order_id=order.id) }}" class="btn btn-light me-3"><i class="bi bi-arrow-left"></i></a>
+
                 <div>
                     <h2 class="fw-bold mb-0">Payment</h2>
                     <span class="text-muted">For Order #{{ order.id }} on Table {{ order.table.number }}</span>
                 </div>
+                {% if order.status == 'paid' %}
+                <div class="ms-auto">
+
+                    <!-- <span class="badge bg-success fs-4 px-4 py-2 rounded-pill shadow-sm"><i class="bi bi-check-circle-fill me-2"></i>PAID</span> -->
+
+                    <a href="{{ url_for('admin.storefront_orders') }}" class="btn btn-light me-3 fw-bold"><i class="bi bi-arrow-left me-2"></i>Back</a> 
+
+                </div>
+
+               
+                {% endif %}
             </div>
 
             <div class="card border-0 shadow-sm">
                 <div class="row g-0">
                     <!-- Left: Order Summary -->
-                    <div class="col-md-6 border-end">
+                    <div class="col-md-6 border-end bg-light bg-opacity-10">
                         <div class="p-4">
                             <h5 class="fw-bold mb-3">Order Summary</h5>
-                            <ul class="list-group list-group-flush">
+                            <ul class="list-group list-group-flush bg-transparent">
                                 {% for item in order.items %}
-                                <li class="list-group-item px-0 d-flex justify-content-between">
+                                <li class="list-group-item px-0 d-flex justify-content-between bg-transparent border-bottom">
                                     <div>
                                         <span class="badge bg-secondary me-2">{{ item.quantity }}x</span>
                                         <span>{{ item.menu_item.name }}</span>
@@ -46,16 +57,22 @@
                             <h5 class="fw-bold mb-3">Payment Method</h5>
                             <form method="POST">
                                 <input type="hidden" name="action" value="mark_as_paid">
-                                <input type="hidden" name="payment_method" id="payment_method" value="card">
+                                <input type="hidden" name="payment_method" id="payment_method" value="{{ order.payment_method or 'card' }}">
                                 
                                 <div class="d-grid gap-2 mb-4" id="payment-method-group">
-                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3 active" onclick="selectPaymentMethod(this, 'card')">
+                                    {% set is_paid = order.status == 'paid' %}
+                                    {% set current_method = order.payment_method or 'card' %}
+                                    
+                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3 {% if current_method == 'card' %}active{% endif %}" 
+                                            {% if is_paid %}disabled{% else %}onclick="selectPaymentMethod(this, 'card')"{% endif %}>
                                         <i class="bi bi-credit-card-fill me-2"></i> Card
                                     </button>
-                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3" onclick="selectPaymentMethod(this, 'cash')">
+                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3 {% if current_method == 'cash' %}active{% endif %}" 
+                                            {% if is_paid %}disabled{% else %}onclick="selectPaymentMethod(this, 'cash')"{% endif %}>
                                         <i class="bi bi-cash-stack me-2"></i> Cash
                                     </button>
-                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3" onclick="selectPaymentMethod(this, 'ewallet')">
+                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3 {% if current_method == 'ewallet' %}active{% endif %}" 
+                                            {% if is_paid %}disabled{% else %}onclick="selectPaymentMethod(this, 'ewallet')"{% endif %}>
                                         <i class="bi bi-qr-code me-2"></i> E-Wallet
                                     </button>
                                 </div>
@@ -65,22 +82,28 @@
                                         <label class="form-label">Amount Paid</label>
                                         <div class="input-group">
                                             <span class="input-group-text">$</span>
-                                            <input type="number" step="0.01" class="form-control" id="amount-paid" value="{{ '%.2f'|format(total) }}">
+                                            <input type="number" step="0.01" class="form-control" id="amount-paid" value="{{ '%.2f'|format(total) }}" {% if is_paid %}disabled{% endif %}>
                                         </div>
                                     </div>
                                     <div class="col-6">
                                         <label class="form-label">Change</label>
                                         <div class="input-group">
                                             <span class="input-group-text">$</span>
-                                            <input type="text" class="form-control bg-light" id="change-due" value="0.00" readonly>
+                                            <input type="text" class="form-control bg-light" id="change-due" value="0.00" readonly disabled>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="d-grid">
+                                    {% if is_paid %}
+                                    <button type="button" class="btn btn-success btn-lg rounded-pill" disabled>
+                                        <i class="bi bi-check-circle-fill me-2"></i>Payment Completed
+                                    </button>
+                                    {% else %}
                                     <button type="submit" class="btn btn-primary btn-lg rounded-pill">
                                         <i class="bi bi-check-circle-fill me-2"></i>Confirm Payment
                                     </button>
+                                    {% endif %}
                                 </div>
                             </form>
                         </div>
@@ -94,12 +117,15 @@
 
 {% block scripts %}
 <script>
-document.getElementById('amount-paid').addEventListener('input', function() {
-    const total = {{ total }};
-    const paid = parseFloat(this.value) || 0;
-    const change = Math.max(0, paid - total);
-    document.getElementById('change-due').value = change.toFixed(2);
-});
+const amountInput = document.getElementById('amount-paid');
+if (amountInput && !amountInput.disabled) {
+    amountInput.addEventListener('input', function() {
+        const total = {{ total }};
+        const paid = parseFloat(this.value) || 0;
+        const change = Math.max(0, paid - total);
+        document.getElementById('change-due').value = change.toFixed(2);
+    });
+}
 
 function selectPaymentMethod(btn, method) {
     document.getElementById('payment_method').value = method;

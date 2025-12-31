@@ -3,11 +3,198 @@
 {% block title %}Order History{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold mb-0">Order History</h2>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Order History</h2>
+            <p class="text-muted mb-0">View past orders and transactions</p>
+        </div>
+        <div class="d-flex gap-2">
+             <!-- Date Filter Dropdown -->
+             <div class="dropdown">
+                <button class="btn btn-white border shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-calendar3 me-2"></i>
+                    {% if date_filter == 'today' %}Today
+                    {% elif date_filter == 'yesterday' %}Yesterday
+                    {% elif date_filter == 'this_week' %}This Week
+                    {% elif date_filter == 'this_month' %}This Month
+                    {% else %}All Time{% endif %}
+                </button>
+                <ul class="dropdown-menu shadow-sm border-0">
+                    <li><a class="dropdown-item" href="{{ url_for('admin.history', date_filter='today') }}">Today</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('admin.history', date_filter='yesterday') }}">Yesterday</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('admin.history', date_filter='this_week') }}">This Week</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('admin.history', date_filter='this_month') }}">This Month</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4 py-3">Order ID</th>
+                            <th class="py-3">Date & Time</th>
+                            <th class="py-3">Table</th>
+                            <th class="py-3">Items</th>
+                            <th class="py-3">Total</th>
+                            <th class="py-3">Payment</th>
+                            <th class="py-3">Status</th>
+                            <th class="pe-4 py-3 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td class="ps-4 fw-bold">#{{ (order.id|string)[-4:]|upper }}</td>
+                            <td class="text-muted small">
+                                <div>{{ order.created_at.strftime('%Y-%m-%d') }}</div>
+                                <div>{{ order.created_at.strftime('%H:%M') }}</div>
+                            </td>
+                            <td>
+                                {% if order.table %}
+                                <span class="badge bg-light text-dark border">Table {{ order.table.number }}</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark border">Takeaway</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ order.item_count }} items</td>
+                            <td class="fw-bold">${{ "%.2f"|format(order.calculated_total) }}</td>
+                            <td>
+                                {% if order.payment_method == 'card' %}
+                                <i class="bi bi-credit-card-fill text-primary me-1"></i> Card
+                                {% elif order.payment_method == 'cash' %}
+                                <i class="bi bi-cash-stack text-success me-1"></i> Cash
+                                {% elif order.payment_method == 'ewallet' %}
+                                <i class="bi bi-qr-code text-info me-1"></i> E-Wallet
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if order.status == 'paid' %}
+                                <span class="badge bg-success-subtle text-success rounded-pill">Paid</span>
+                                {% elif order.status == 'cancelled' %}
+                                <span class="badge bg-danger-subtle text-danger rounded-pill">Cancelled</span>
+                                {% elif order.status == 'completed' %}
+                                <span class="badge bg-secondary-subtle text-secondary rounded-pill">Completed</span>
+                                {% else %}
+                                <span class="badge bg-warning-subtle text-warning rounded-pill">{{ order.status|title }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end">
+                                <button class="btn btn-sm btn-light border" onclick="openHistoryModal('{{ order.id }}')">
+                                    View
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+                                No orders found for this period.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="text-center py-5 text-muted">
-    <p>Order History feature coming soon.</p>
+<!-- Single Shared Modal -->
+<div class="modal fade" id="historyDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Order #<span id="modal-order-id"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="p-3 bg-light border-bottom">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Status</span>
+                        <span class="fw-bold text-capitalize" id="modal-status"></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Date</span>
+                        <span class="fw-bold" id="modal-date"></span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Payment Method</span>
+                        <span class="fw-bold text-capitalize" id="modal-payment"></span>
+                    </div>
+                </div>
+                <div class="p-3">
+                    <h6 class="fw-bold text-muted text-uppercase small mb-3">Items</h6>
+                    <div id="modal-items-list"></div>
+                    <hr>
+                    <div class="d-flex justify-content-between fw-bold fs-5">
+                        <span>Total</span>
+                        <span>$<span id="modal-total"></span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill w-100" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    const historyData = {
+        {% for order in orders %}
+        "{{ order.id }}": {
+            "id": "{{ (order.id|string)[-4:]|upper }}",
+            "status": "{{ order.status }}",
+            "date": "{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}",
+            "payment_method": "{{ order.payment_method or '-' }}",
+            "total": "{{ "%.2f"|format(order.calculated_total) }}",
+            "items": [
+                {% for item in order.items %}
+                {
+                    "quantity": {{ item.quantity }},
+                    "name": {{ item.menu_item.name|tojson }},
+                    "modifiers": [
+                        {% for mod in item.selected_modifiers %}
+                        {{ mod.name|tojson }},
+                        {% endfor %}
+                    ],
+                    "price": "{{ "%.2f"|format((item.menu_item.price + (item.selected_modifiers|sum(attribute='price_override'))) * item.quantity) }}"
+                },
+                {% endfor %}
+            ]
+        },
+        {% endfor %}
+    };
+
+    function openHistoryModal(orderId) {
+        const data = historyData[orderId];
+        if (!data) return;
+
+        document.getElementById('modal-order-id').textContent = data.id;
+        document.getElementById('modal-status').textContent = data.status;
+        document.getElementById('modal-date').textContent = data.date;
+        document.getElementById('modal-payment').textContent = data.payment_method;
+        document.getElementById('modal-total').textContent = data.total;
+
+        const itemsContainer = document.getElementById('modal-items-list');
+        itemsContainer.innerHTML = data.items.map(item => `
+            <div class="d-flex justify-content-between mb-2">
+                <div>
+                    <span class="fw-bold">${item.quantity}x</span> ${item.name}
+                    ${item.modifiers.length ? `<div class="text-muted small ps-3">${item.modifiers.map(m => `+ ${m}<br>`).join('')}</div>` : ''}
+                </div>
+                <span>$${item.price}</span>
+            </div>
+        `).join('');
+
+        new bootstrap.Modal(document.getElementById('historyDetailModal')).show();
+    }
+</script>
 {% endblock %}

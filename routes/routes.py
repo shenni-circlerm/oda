@@ -580,7 +580,43 @@ def completed():
 @admin_bp.route('/office/history')
 @login_required
 def history():
-    return render_template('office_history.html')
+    date_filter = request.args.get('date_filter', 'today')
+    
+    query = Order.query.filter_by(restaurant_id=current_user.restaurant_id)
+
+    if date_filter == 'today':
+        query = query.filter(func.date(Order.created_at) == date.today())
+    elif date_filter == 'yesterday':
+        yesterday = date.today() - timedelta(days=1)
+        query = query.filter(func.date(Order.created_at) == yesterday)
+    elif date_filter == 'this_week':
+        today = date.today()
+        start_of_week = today - timedelta(days=today.weekday())
+        query = query.filter(func.date(Order.created_at) >= start_of_week)
+    elif date_filter == 'this_month':
+        today = date.today()
+        start_of_month = today.replace(day=1)
+        query = query.filter(func.date(Order.created_at) >= start_of_month)
+
+    # Eager load relationships to avoid N+1 queries
+    orders = query.options(
+        selectinload(Order.items).selectinload(OrderItem.menu_item),
+        selectinload(Order.items).selectinload(OrderItem.selected_modifiers),
+        selectinload(Order.table)
+    ).order_by(Order.created_at.desc()).all()
+
+    # Calculate totals for display
+    for order in orders:
+        subtotal = 0
+        for item in order.items:
+            modifier_price = sum(mod.price_override for mod in item.selected_modifiers)
+            subtotal += (item.menu_item.price + modifier_price) * item.quantity
+        
+        tax_rate = current_user.restaurant.tax_rate or 0.0
+        order.calculated_total = subtotal * (1 + tax_rate)
+        order.item_count = sum(item.quantity for item in order.items)
+
+    return render_template('office_history.html', orders=orders, date_filter=date_filter)
 
 @admin_bp.route('/office/payments')
 @login_required
@@ -1570,7 +1606,13 @@ def storefront_payment(order_id):
             db.session.commit()
             target = f"Table {order.table.number}" if order.table else "Takeaway"
             flash(f'Order #{order.id} for {target} marked as paid.')
-            return redirect(url_for('admin.storefront_orders'))
+            
+            # Calculate total for success page display
+            subtotal = sum(item.menu_item.price * item.quantity for item in order.items)
+            tax_rate = current_user.restaurant.tax_rate or 0.0
+            total = subtotal * (1 + tax_rate)
+            
+            return render_template('storefront_payment.html', order=order, total=total, success=True)
 
     subtotal = sum(item.menu_item.price * item.quantity for item in order.items)
     tax_rate = current_user.restaurant.tax_rate or 0.0
