@@ -126,15 +126,13 @@
                                 <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
                             </a>
 
-                            <a href="{{ url_for('qrlink.customer_menu', slug=restaurant.slug, type='take-away') }}" 
-                               class="order-option-card shadow-sm text-start">
-                                <i class="bi bi-bag-heart"></i>
+                            <div class="order-option-card shadow-sm text-start" style="opacity: 0.5; background-color: #f8f9fa; cursor: not-allowed;">
+                                <i class="bi bi-bag-heart text-muted"></i>
                                 <div>
-                                    <span class="option-title">Take-Away</span>
-                                    <span class="option-desc">Pick up your order and go.</span>
+                                    <span class="option-title text-muted">Take-Away</span>
+                                    <span class="option-desc text-muted">Pick up your order and go.</span>
                                 </div>
-                                <i class="bi bi-chevron-right ms-auto fs-6 text-muted"></i>
-                            </a>
+                            </div>
                         </div>
                     </div>
                 </div>
