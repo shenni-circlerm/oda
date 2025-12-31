@@ -13,9 +13,11 @@ Flask==2.3.3 # CHANGED: Max version for Python < 3.8. Use '==' to pin.
 Flask-Bcrypt>=0.7.1
 Flask-APScheduler>=1.1.0
 Flask-Cors>=3.0.10
+eventlet>=0.33.3
 Flask-Login>=0.5.0 
 flask-restx>=1.1.0
 Flask-Migrate>=4.0.0
+Flask-SocketIO>=5.3.6
 Flask-SQLAlchemy>=3.1.0 
 google-genai>=0.5.0
 flask-swagger-ui>=3.36.0
@@ -42,4 +44,5 @@ requests>=2.22.0
 urllib3>=1.25.8
 Werkzeug>=2.3.8 # CHANGED: Use the latest 2.x version for Flask 2.3.x compatibility.
 WTForms>=3.0.1 # CHANGED: 3.1.2 is Flask 3.x specific. Use 3.0.1 for 2.x.
+simple-websocket>=0.10.0
 Flask-Mail>=0.9.1
