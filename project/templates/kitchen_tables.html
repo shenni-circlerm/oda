@@ -48,6 +48,7 @@
     /* Status Colors */
     .bg-available { background-color: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1); }
     .bg-occupied { background-color: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+    .bg-paid { background-color: #0dcaf0; box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.1); }
     .bg-pending { background-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); }
     
     .table-number {
@@ -94,13 +95,13 @@
 
     <div class="table-grid" id="table-container">
         {% for table in tables %}
-        <div class="table-card p-4 shadow-sm status-{{ 'occupied' if table.active_order else 'available' }}" onclick="openTableDetail('{{ table.number }}', '{{ table.seating_capacity or 4 }}', '{{ (table.notes or '')|replace("'", "\\'") }}', {{ table.serialized_items|tojson|forceescape }})">
+        <div class="table-card p-4 shadow-sm status-{{ 'paid' if table.active_order and table.active_order.status == 'paid' else ('occupied' if table.active_order else 'available') }}" onclick="openTableDetail('{{ table.number }}', '{{ table.seating_capacity or 4 }}', '{{ (table.notes or '')|replace("'", "\\'") }}', {{ table.serialized_items|tojson|forceescape }})">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <div class="status-badge-container">
-                        <span class="status-indicator bg-{{ 'occupied' if table.active_order else 'available' }}"></span>
+                        <span class="status-indicator bg-{{ 'paid' if table.active_order and table.active_order.status == 'paid' else ('occupied' if table.active_order else 'available') }}"></span>
                         <span class="smallest fw-bold text-uppercase tracking-wider text-muted">
-                            {{ 'Occupied' if table.active_order else 'Available' }}
+                            {{ 'Paid' if table.active_order and table.active_order.status == 'paid' else ('Occupied' if table.active_order else 'Available') }}
                         </span>
                     </div>
                     <div class="table-number fw-bold">#{{ table.number }}</div>

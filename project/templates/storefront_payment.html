@@ -46,15 +46,16 @@
                             <h5 class="fw-bold mb-3">Payment Method</h5>
                             <form method="POST">
                                 <input type="hidden" name="action" value="mark_as_paid">
+                                <input type="hidden" name="payment_method" id="payment_method" value="card">
                                 
-                                <div class="d-grid gap-2 mb-4">
-                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3 active">
+                                <div class="d-grid gap-2 mb-4" id="payment-method-group">
+                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3 active" onclick="selectPaymentMethod(this, 'card')">
                                         <i class="bi bi-credit-card-fill me-2"></i> Card
                                     </button>
-                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3">
+                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3" onclick="selectPaymentMethod(this, 'cash')">
                                         <i class="bi bi-cash-stack me-2"></i> Cash
                                     </button>
-                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3">
+                                    <button type="button" class="btn btn-outline-primary btn-lg text-start p-3" onclick="selectPaymentMethod(this, 'ewallet')">
                                         <i class="bi bi-qr-code me-2"></i> E-Wallet
                                     </button>
                                 </div>
@@ -99,5 +100,12 @@ document.getElementById('amount-paid').addEventListener('input', function() {
     const change = Math.max(0, paid - total);
     document.getElementById('change-due').value = change.toFixed(2);
 });
+
+function selectPaymentMethod(btn, method) {
+    document.getElementById('payment_method').value = method;
+    const buttons = document.querySelectorAll('#payment-method-group button');
+    buttons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
 </script>
 {% endblock %}

@@ -59,6 +59,7 @@
     .status-pending { border-left-color: #fbbf24; }
     .status-preparing { border-left-color: #0d6efd; background: #eff6ff; }
     .status-ready { border-left-color: #198754; background: #f0fdf4; opacity: 0.8; }
+    .status-paid { border-left-color: #fbbf24; }
     
     .item-ticket.was-printed {
         opacity: 0.6;
@@ -157,6 +158,7 @@
                                 <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
                                 {% if item.status == 'preparing' %}<span class="badge bg-primary rounded-pill">Cooking</span>{% endif %}
                                 {% if item.status == 'ready' %}<span class="badge bg-success rounded-pill">Ready</span>{% endif %}
+                                {% if item.order.status == 'paid' %}<span class="badge bg-warning text-dark rounded-pill">Paid</span>{% endif %}
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button class="btn btn-link btn-sm p-0 text-muted" onclick="printTicket('{{ item.menu_item.name|replace("'", "\\'") }}', '{{ item.quantity }}', '{{ item.order.table.number }}', '{{ (item.notes or '')|replace("'", "\\'") }}')">
@@ -180,7 +182,7 @@
                                 <i class="bi bi-check-all"></i> Clear
                             </button>
                             {% else %}
-                            {% if item.status == 'pending' %}
+                            {% if item.status in ['pending', 'paid'] %}
                             <button class="btn btn-sm btn-outline-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'preparing', this)">
                                 <i class="bi bi-fire"></i> Cook
                             </button>
@@ -225,6 +227,7 @@
                                 <span class="badge bg-dark rounded-pill">Table {{ item.order.table.number }}</span>
                                 {% if item.status == 'preparing' %}<span class="badge bg-primary rounded-pill">Cooking</span>{% endif %}
                                 {% if item.status == 'ready' %}<span class="badge bg-success rounded-pill">Ready</span>{% endif %}
+                                {% if item.order.status == 'paid' %}<span class="badge bg-warning text-dark rounded-pill">Paid</span>{% endif %}
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button class="btn btn-link btn-sm p-0 text-muted" onclick="printTicket('{{ item.menu_item.name|replace("'", "\\'") }}', '{{ item.quantity }}', '{{ item.order.table.number }}', '{{ (item.notes or '')|replace("'", "\\'") }}')">
@@ -248,7 +251,7 @@
                                 <i class="bi bi-check-all"></i> Clear
                             </button>
                             {% else %}
-                            {% if item.status == 'pending' %}
+                            {% if item.status in ['pending', 'paid'] %}
                             <button class="btn btn-sm btn-outline-primary flex-grow-1 rounded-pill" onclick="updateItemStatus('{{ item.id }}', 'preparing', this)">
                                 <i class="bi bi-fire"></i> Cook
                             </button>
@@ -409,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Sort station to move this item to bottom
                     sortStation(card.parentElement);
                 } else if (status === 'preparing') {
-                    card.classList.remove('status-pending');
+                    card.classList.remove('status-pending', 'status-paid');
                     card.classList.add('status-preparing');
                     btn.remove(); // Remove the "Cook" button
 

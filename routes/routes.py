@@ -49,8 +49,8 @@ def kitchen_orders():
     # Get all active order items that are not ready
     active_items = db.session.query(OrderItem).join(Order).filter(
         Order.restaurant_id == current_user.restaurant_id,
-        Order.status.in_(['pending', 'preparing', 'ready']),
-        OrderItem.status.in_(['pending', 'preparing', 'ready'])
+        Order.status.in_(['pending', 'preparing', 'ready', 'paid']),
+        OrderItem.status.in_(['pending', 'preparing', 'ready', 'paid'])
     ).order_by(OrderItem.created_at).all()
 
     # Group items by station
@@ -516,7 +516,7 @@ def kitchen_tables():
     active_orders = Order.query.filter_by(
         restaurant_id=current_user.restaurant_id
     ).filter(
-        Order.status.in_(['pending', 'preparing', 'ready'])
+        Order.status.in_(['pending', 'preparing', 'ready', 'paid'])
     ).options(
         selectinload(Order.items).selectinload(OrderItem.menu_item)
     ).all()
@@ -1564,6 +1564,7 @@ def storefront_payment(order_id):
         action = request.form.get('action')
         if action == 'mark_as_paid':
             order.status = 'paid'
+            order.payment_method = request.form.get('payment_method')
             # Here you would integrate with a real payment gateway if needed
             # For now, we just update the status
             db.session.commit()

@@ -177,6 +177,7 @@ class Order(db.Model):
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='pending') # pending, preparing, ready, served, paid, completed, cancelled
+    payment_method = db.Column(db.String(50), nullable=True) # card, cash, ewallet
     items = db.relationship('OrderItem', backref='order', cascade="all, delete-orphan")
     table = db.relationship('Table')
 

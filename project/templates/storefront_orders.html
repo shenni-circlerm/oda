@@ -50,6 +50,7 @@
     .dot-ready { background-color: #198754; }
     .dot-completed { background-color: #6c757d; }
     .dot-served { background-color: #198754; }
+    .dot-paid { background-color: #198754; }
 
     .detail-pane {
         background-color: #ffffff;
@@ -175,7 +176,7 @@
                     <div class="d-flex justify-content-between align-items-center mt-2">
                         <div class="small text-muted">{{ order.item_counts.total if order.item_counts else 0 }} items</div>
                         <div class="text-end">
-                        {% if order.status in ['pending', 'preparing'] %}
+                        {% if order.status in ['pending', 'preparing', 'paid'] %}
                             <div class="timer small text-danger" data-timestamp="{{ order.created_at.isoformat() }}Z"><i class="bi bi-clock"></i> ...</div>
                         {% endif %}
                         <span class="fw-bold small">${{ "%.2f"|format(order.total_price) }}</span>
