@@ -1400,6 +1400,30 @@ def storefront_orders():
                         flash('Item added to order.')
                 db.session.commit()
         
+        elif action == 'add_item_with_options':
+            menu_item_id = request.form.get('menu_item_id')
+            quantity = int(request.form.get('quantity', 1))
+            notes = request.form.get('notes')
+            modifier_ids = request.form.getlist('modifiers')
+
+            if order_id and menu_item_id:
+                order = Order.query.get(order_id)
+                if order and order.restaurant_id == restaurant.id:
+                    new_item = OrderItem(
+                        order_id=order.id,
+                        menu_item_id=menu_item_id,
+                        quantity=quantity,
+                        notes=notes
+                    )
+                    if modifier_ids:
+                        options = ModifierOption.query.filter(ModifierOption.id.in_(modifier_ids)).all()
+                        for option in options:
+                            new_item.selected_modifiers.append(option)
+                    
+                    db.session.add(new_item)
+                    db.session.commit()
+                    flash('Item added to order.')
+        
         elif action == 'remove_item':
             item_id = request.form.get('item_id')
             if item_id:

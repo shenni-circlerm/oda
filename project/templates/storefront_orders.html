@@ -124,6 +124,16 @@
     .btn-outline-success.active {
         color: #fff !important;
     }
+
+    /* Hide number input spinners */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+        -webkit-appearance: none; 
+        margin: 0; 
+    }
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
 </style>
 {% endblock %}
 
@@ -289,17 +299,29 @@
                 </div>
 
                 <div class="d-flex gap-2 justify-content-end">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="printReceipt()">
-                        <i class="bi bi-printer me-2"></i>Print Order
-                    </button>
+                    {% if selected_order.items|length > 0 %}
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="printReceipt()">
+                            <i class="bi bi-printer me-2"></i>Print Order
+                        </button>
+                    {% else %}
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" disabled>
+                            <i class="bi bi-printer me-2"></i>Print Order
+                        </button>
+                    {% endif %}
                     {% if selected_order.status == 'paid' %}
                         <button class="btn btn-success rounded-pill px-5 fw-bold" disabled>
                             <i class="bi bi-check-circle-fill me-2"></i>Paid
                         </button>
                     {% else %}
+                        {% if selected_order.items|length > 0 %}
                         <a href="{{ url_for('admin.storefront_payment', order_id=selected_order.id) }}" class="btn btn-primary rounded-pill px-5 fw-bold">
                             <i class="bi bi-credit-card me-2"></i>Pay
                         </a>
+                        {% else %}
+                        <button class="btn btn-secondary rounded-pill px-5 fw-bold" disabled>
+                            <i class="bi bi-credit-card me-2"></i>Pay
+                        </button>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
