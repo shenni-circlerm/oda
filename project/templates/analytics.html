@@ -8,9 +8,6 @@
         <h1 class="mb-1">Insights</h1>
         <p class="text-muted mb-0">Track your restaurant's performance and growth.</p>
     </div>
-    <a href="{{ url_for('analytics.export_orders') }}" class="btn btn-outline-primary">
-        <i class="bi bi-download me-2"></i> Export CSV
-    </a>
 </div>
 
 <div class="row g-4 mb-5">
@@ -26,14 +23,28 @@
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header text-uppercase small tracking-wider">Top Selling Items</div>
             <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    {% for item in top_items %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center py-3 border-0">
-                        <span class="fw-medium text-dark">{{ item.name }}</span>
-                        <span class="badge bg-primary rounded-pill px-3">{{ item.total }} sold</span>
-                    </li>
-                    {% endfor %}
-                </ul>
+                <div class="list-group list-group-flush">
+                    {% if top_items %}
+                        {% set max_sold = top_items[0].total_sold %}
+                        {% for item in top_items %}
+                        {% set percent = (item.total_sold / max_sold * 100) if max_sold > 0 else 0 %}
+                        <div class="list-group-item border-0 py-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-medium text-dark">{{ loop.index }}. {{ item.name }}</span>
+                                <div class="text-end">
+                                    <span class="fw-bold">{{ item.total_sold }} sold</span>
+                                    <span class="text-muted small ms-2">(${{ "%.2f"|format(item.total_revenue) }})</span>
+                                </div>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-primary" role="progressbar" style="width: {{ percent }}%"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="p-4 text-center text-muted">No sales data yet.</div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

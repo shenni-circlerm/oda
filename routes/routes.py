@@ -1,12 +1,14 @@
 from functools import wraps
-from flask import Blueprint, abort, request, redirect, url_for, render_template, flash, current_app, send_file, session, jsonify
+from flask import Blueprint, abort, request, redirect, url_for, render_template, flash, current_app, send_file, session, jsonify, Response
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 import os
 import re
 import pytz
-from io import BytesIO
+import csv
+import io
+from io import BytesIO, StringIO
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func
@@ -617,6 +619,69 @@ def history():
         order.item_count = sum(item.quantity for item in order.items)
 
     return render_template('office_history.html', orders=orders, date_filter=date_filter)
+
+@admin_bp.route('/office/history/export')
+@login_required
+def office_export_history():
+    date_filter = request.args.get('date_filter', 'today')
+    
+    query = Order.query.filter_by(restaurant_id=current_user.restaurant_id)
+
+    # Apply same filters as the view
+    if date_filter == 'today':
+        query = query.filter(func.date(Order.created_at) == date.today())
+    elif date_filter == 'yesterday':
+        yesterday = date.today() - timedelta(days=1)
+        query = query.filter(func.date(Order.created_at) == yesterday)
+    elif date_filter == 'this_week':
+        today = date.today()
+        start_of_week = today - timedelta(days=today.weekday())
+        query = query.filter(func.date(Order.created_at) >= start_of_week)
+    elif date_filter == 'this_month':
+        today = date.today()
+        start_of_month = today.replace(day=1)
+        query = query.filter(func.date(Order.created_at) >= start_of_month)
+
+    orders = query.options(
+        selectinload(Order.items).selectinload(OrderItem.menu_item),
+        selectinload(Order.items).selectinload(OrderItem.selected_modifiers),
+        selectinload(Order.table)
+    ).order_by(Order.created_at.desc()).all()
+
+    output = StringIO()
+    writer = csv.writer(output)
+    # Enhanced CSV Headers
+    writer.writerow(['Order ID', 'Date', 'Time', 'Table', 'Status', 'Payment Method', 'Items Summary', 'Subtotal', 'Tax', 'Total'])
+
+    tax_rate = current_user.restaurant.tax_rate or 0.0
+
+    for order in orders:
+        subtotal = 0
+        item_summaries = []
+        for item in order.items:
+            modifier_price = sum(mod.price_override for mod in item.selected_modifiers)
+            subtotal += (item.menu_item.price + modifier_price) * item.quantity
+            item_summaries.append(f"{item.quantity}x {item.menu_item.name}")
+        
+        total = subtotal * (1 + tax_rate)
+        tax_amount = subtotal * tax_rate
+        
+        writer.writerow([
+            order.id,
+            order.created_at.strftime('%Y-%m-%d'),
+            order.created_at.strftime('%H:%M:%S'),
+            f"Table {order.table.number}" if order.table else "Takeaway",
+            order.status.title(),
+            (order.payment_method or '-').title(),
+            "; ".join(item_summaries),
+            f"{subtotal:.2f}",
+            f"{tax_amount:.2f}",
+            f"{total:.2f}"
+        ])
+
+    output.seek(0)
+    filename = f"orders_export_{date_filter}_{datetime.now().strftime('%Y%m%d')}.csv"
+    return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename={filename}"})
 
 @admin_bp.route('/office/payments')
 @login_required
