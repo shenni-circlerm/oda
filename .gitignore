@@ -25,3 +25,7 @@ instance/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Flask Migration
+.env
+migrations/*

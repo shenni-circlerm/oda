@@ -39,11 +39,10 @@ def create_app(config_name='default'):
     app.register_blueprint(auth_bp)
     app.register_blueprint(ui_bp)
 
-    # with app.app_context():
-    #     db.create_all()
-    if app.config.get('SQLALCHEMY_DATABASE_URI') and app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite:'):
+    if app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('sqlite'):
         with app.app_context():
             db.create_all()
+
     return app
 
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
